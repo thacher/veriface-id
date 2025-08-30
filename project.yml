@@ -1,0 +1,48 @@
+name: check-id
+options:
+  bundleIdPrefix: com.checkid
+  deploymentTarget:
+    iOS: "16.0"
+  xcodeVersion: "15.0"
+  groupSortPosition: top
+
+targets:
+  check-id:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: check-id
+        type: group
+    settings:
+      INFOPLIST_FILE: check-id/Info.plist
+      PRODUCT_BUNDLE_IDENTIFIER: com.checkid.app
+      PRODUCT_NAME: check-id
+      INFOPLIST_KEY_NSCameraUsageDescription: "This app needs camera access to capture high-quality photos of driver's license documents for validation."
+      INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "This app needs access to your photo library to select existing driver's license images for validation."
+      INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+      INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+      INFOPLIST_KEY_UILaunchScreen_Generation: YES
+      INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+      INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+    info:
+      path: check-id/Info.plist
+      properties:
+        CFBundleDisplayName: "Check ID"
+        CFBundleName: "check-id"
+        CFBundleIdentifier: com.checkid.app
+        CFBundleVersion: "1"
+        CFBundleShortVersionString: "1.0"
+        LSRequiresIPhoneOS: true
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSCameraUsageDescription: "This app needs camera access to capture high-quality photos of driver's license documents for validation."
+        NSPhotoLibraryUsageDescription: "This app needs access to your photo library to select existing driver's license images for validation."
