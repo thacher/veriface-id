@@ -18,6 +18,7 @@ struct ContentView: View {
     @State private var showingImagePicker = false
     @State private var showingCamera = false
     @State private var showingVideoCapture = false
+    @State private var showingEnhancedVideoCapture = false
     @State private var isFrontImage = true
     @State private var showingValidationAlert = false
     @State private var validationMessage = ""
@@ -135,8 +136,17 @@ struct ContentView: View {
                 
                 ScrollView {
                     VStack(spacing: 0) {
-                        // Modern header section
-                        HeaderSection()
+                        // Modern header section with video emphasis
+                        VStack(spacing: 16) {
+                            Text("Gemini ID Scanner")
+                                .font(.system(size: 28, weight: .bold, design: .default))
+                                .foregroundColor(Color(red: 0.1, green: 0.1, blue: 0.2))
+                                .multilineTextAlignment(.center)
+                            
+
+                        }
+                        .padding(.top, 20)
+                        .padding(.bottom, 20)
                         
                         // Main content with cards
                         VStack(spacing: 24) {
@@ -149,6 +159,7 @@ struct ContentView: View {
                                 showingImagePicker: $showingImagePicker,
                                 showingCamera: $showingCamera,
                                 showingVideoCapture: $showingVideoCapture,
+                                showingEnhancedVideoCapture: $showingEnhancedVideoCapture,
                                 onCaptureRequest: { isFront in
                                     isFrontImage = isFront
                                 }
@@ -162,6 +173,7 @@ struct ContentView: View {
                                 showingImagePicker: $showingImagePicker,
                                 showingCamera: $showingCamera,
                                 showingVideoCapture: $showingVideoCapture,
+                                showingEnhancedVideoCapture: $showingEnhancedVideoCapture,
                                 onCaptureRequest: { isFront in
                                     isFrontImage = isFront
                                 }
@@ -203,6 +215,14 @@ struct ContentView: View {
             VideoCaptureView(
                 onVideoCaptured: { videoURL in
                     processVideoForLiveness(videoURL)
+                }
+            )
+        }
+        .sheet(isPresented: $showingEnhancedVideoCapture) {
+            EnhancedVideoCaptureView(
+                side: isFrontImage ? .front : .back,
+                onScanComplete: { results in
+                    handleEnhancedVideoScanResults(results)
                 }
             )
         }
@@ -1328,6 +1348,44 @@ struct ContentView: View {
                 } else {
                     message += "⚠️ Liveness verification needs improvement"
                 }
+                
+                self.validationMessage = message
+                self.showingValidationAlert = true
+            }
+        }
+    }
+    
+    private func handleEnhancedVideoScanResults(_ results: VideoScanResults) {
+        isProcessing = true
+        
+        DispatchQueue.global(qos: .userInitiated).async {
+            // Process the video scan results
+            let licenseData = results.extractedData
+            
+            // Update the appropriate image based on side
+            DispatchQueue.main.async {
+                if results.extractedData.frontText != nil {
+                    // This was a front scan
+                    self.frontImage = results.currentFrame
+                    self.extractedData = licenseData
+                } else {
+                    // This was a back scan
+                    self.backImage = results.currentFrame
+                    if self.extractedData != nil {
+                        self.extractedData?.barcodeData = licenseData.barcodeData
+                        self.extractedData?.barcodeType = licenseData.barcodeType
+                    }
+                }
+                
+                self.isProcessing = false
+                
+                // Show success message
+                var message = "🎥 Enhanced Video Scan Complete!\n\n"
+                message += "Frames Analyzed: \(results.frameCount)\n"
+                message += "Average Confidence: \(String(format: "%.1f", results.averageConfidence * 100))%\n"
+                message += "Quality Score: \(String(format: "%.1f", results.qualityScore * 100))%\n"
+                message += "Processing Time: \(String(format: "%.1f", results.processingTime))s\n\n"
+                message += "Text extracted from \(results.frameCount) frames for better accuracy."
                 
                 self.validationMessage = message
                 self.showingValidationAlert = true
@@ -2567,6 +2625,7 @@ struct LicenseCaptureSection: View {
     @Binding var showingImagePicker: Bool
     @Binding var showingCamera: Bool
     @Binding var showingVideoCapture: Bool
+    @Binding var showingEnhancedVideoCapture: Bool
     let onCaptureRequest: (Bool) -> Void
     
     // Image quality state
@@ -2618,34 +2677,22 @@ struct LicenseCaptureSection: View {
                     VStack {
                         HStack(spacing: 16) {
                             ActionButton(
-                                icon: "camera.fill",
+                                icon: "video.badge.plus",
                                 color: Color(red: 0.2, green: 0.6, blue: 1.0),
                                 action: {
                                     onCaptureRequest(isFrontImage)
-                                    showingCamera = true
+                                    showingEnhancedVideoCapture = true
                                 }
                             )
                             
                             ActionButton(
                                 icon: "photo.fill",
-                                color: Color(red: 0.3, green: 0.8, blue: 0.4),
+                                color: Color(red: 0.6, green: 0.6, blue: 0.6),
                                 action: {
                                     onCaptureRequest(isFrontImage)
                                     showingImagePicker = true
                                 }
                             )
-                            
-                            // Add video capture button for front image
-                            if isFrontImage {
-                                ActionButton(
-                                    icon: "video.fill",
-                                    color: Color(red: 0.8, green: 0.4, blue: 0.2),
-                                    action: {
-                                        onCaptureRequest(isFrontImage)
-                                        showingVideoCapture = true
-                                    }
-                                )
-                            }
                         }
                         .padding(.top, 16)
                         
@@ -2662,10 +2709,24 @@ struct LicenseCaptureSection: View {
                     HStack(spacing: 0) {
                         Spacer()
                         
+                        // Enhanced video capture button for both sides
+                        CaptureOptionButton(
+                            icon: "video.badge.plus",
+                            title: "Video",
+                            subtitle: "Capture",
+                            color: Color(red: 0.2, green: 0.6, blue: 1.0),
+                            action: {
+                                onCaptureRequest(isFrontImage)
+                                showingEnhancedVideoCapture = true
+                            }
+                        )
+                        
+                        Spacer()
+                        
                         CaptureOptionButton(
                             icon: "camera.fill",
-                            title: "Capture",
-                            subtitle: "Use Camera",
+                            title: "Camera",
+                            subtitle: "Capture",
                             color: Color(red: 0.2, green: 0.6, blue: 1.0),
                             action: {
                                 onCaptureRequest(isFrontImage)
@@ -2674,35 +2735,6 @@ struct LicenseCaptureSection: View {
                         )
                         
                         Spacer()
-                        
-                        CaptureOptionButton(
-                            icon: "photo.fill",
-                            title: "Select",
-                            subtitle: "From Library",
-                            color: Color(red: 0.3, green: 0.8, blue: 0.4),
-                            action: {
-                                onCaptureRequest(isFrontImage)
-                                showingImagePicker = true
-                            }
-                        )
-                        
-                        Spacer()
-                        
-                        // Add liveness button inline for front image
-                        if isFrontImage {
-                            CaptureOptionButton(
-                                icon: "video.fill",
-                                title: "Liveness",
-                                subtitle: "Video Check",
-                                color: Color(red: 0.8, green: 0.4, blue: 0.2),
-                                action: {
-                                    onCaptureRequest(isFrontImage)
-                                    showingVideoCapture = true
-                                }
-                            )
-                            
-                            Spacer()
-                        }
                     }
                 }
             }
@@ -3821,12 +3853,18 @@ class VideoCaptureViewController: UIViewController {
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        captureSession?.startRunning()
+        // Start capture session on background thread
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            self?.captureSession?.startRunning()
+        }
     }
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        captureSession?.stopRunning()
+        // Stop capture session on background thread
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            self?.captureSession?.stopRunning()
+        }
     }
 }
 
@@ -3858,32 +3896,6 @@ struct AdvancedVerificationSection: View {
     
     var body: some View {
         VStack(spacing: 20) {
-            // Header
-            VStack(alignment: .center, spacing: 8) {
-                Text("Advanced License Verification")
-                    .font(.system(size: 22, weight: .semibold, design: .default))
-                    .foregroundColor(Color(red: 0.1, green: 0.1, blue: 0.2))
-                    .multilineTextAlignment(.center)
-                
-                Text("Face detection, liveness verification & authenticity checks")
-                    .font(.system(size: 16, weight: .regular, design: .default))
-                    .foregroundColor(Color(red: 0.5, green: 0.5, blue: 0.6))
-                    .multilineTextAlignment(.center)
-            }
-            
-            // Feature list
-            VStack(alignment: .leading, spacing: 12) {
-                FeatureRow(icon: "face.smiling", title: "Face Detection", description: "Analyze license photo quality and position")
-                FeatureRow(icon: "video.badge.plus", title: "Liveness Detection", description: "Verify real person through video capture")
-                FeatureRow(icon: "shield.checkered", title: "Authenticity Checks", description: "Detect digital manipulation and security features")
-                FeatureRow(icon: "doc.text.magnifyingglass", title: "OCR & Barcode", description: "Extract and validate license data")
-            }
-            .padding(20)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(red: 0.98, green: 0.98, blue: 1.0))
-            )
-            
             // Validation button
             Button(action: action) {
                 HStack(spacing: 16) {
@@ -3896,7 +3908,7 @@ struct AdvancedVerificationSection: View {
                             .font(.system(size: 20, weight: .semibold))
                     }
                     
-                    Text(isProcessing ? "Processing..." : "Start Advanced Verification")
+                    Text(isProcessing ? "Processing..." : "Start Verification")
                         .font(.system(size: 18, weight: .semibold, design: .default))
                 }
                 .foregroundColor(.white)
@@ -3928,33 +3940,9 @@ struct AdvancedVerificationSection: View {
     }
 }
 
-// Feature row component
-struct FeatureRow: View {
-    let icon: String
-    let title: String
-    let description: String
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 20, weight: .medium))
-                .foregroundColor(Color(red: 0.2, green: 0.6, blue: 1.0))
-                .frame(width: 24)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(Color(red: 0.1, green: 0.1, blue: 0.2))
-                
-                Text(description)
-                    .font(.system(size: 14, weight: .regular))
-                    .foregroundColor(Color(red: 0.5, green: 0.5, blue: 0.6))
-            }
-            
-            Spacer()
-        }
-    }
-}
+
+
+
 
 #Preview {
     ContentView()
