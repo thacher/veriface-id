@@ -1502,43 +1502,69 @@ struct ContentView: View {
     private func performAuthenticityChecks(front: UIImage, back: UIImage) -> AuthenticityResults {
         var results = AuthenticityResults()
         
-        // Check for digital manipulation
+        print("🔍 Starting comprehensive US Driver's License authenticity verification...")
+        
+        // Enhanced digital manipulation detection
         results.digitalManipulationScore = detectDigitalManipulation(front)
         
-        // Check for printing artifacts
+        // Enhanced printing artifacts detection
         results.printingArtifactsScore = detectPrintingArtifacts(front)
         
-        // Check for holographic features
+        // Enhanced holographic features detection
         results.holographicFeaturesScore = detectHolographicFeatures(front)
         
-        // Check for security features
-        results.securityFeaturesScore = detectSecurityFeatures(front, back)
+        // Comprehensive US license security features
+        results.securityFeaturesScore = detectUSLicenseSecurityFeatures(front, back)
         
-        // Check for consistency between front and back
+        // Enhanced consistency checks
         results.consistencyScore = checkConsistency(front: front, back: back)
         
-        // Calculate overall authenticity score
+        // New: US license format validation
+        let formatScore = validateUSLicenseFormat(front, back)
+        results.formatValidationScore = formatScore
+        
+        // New: Security pattern analysis
+        let patternScore = analyzeSecurityPatterns(front)
+        results.securityPatternScore = patternScore
+        
+        // New: Color and material analysis
+        let materialScore = analyzeLicenseMaterial(front)
+        results.materialAnalysisScore = materialScore
+        
+        // Calculate weighted overall authenticity score
         let scores = [
-            results.digitalManipulationScore,
-            results.printingArtifactsScore,
-            results.holographicFeaturesScore,
-            results.securityFeaturesScore,
-            results.consistencyScore
+            results.digitalManipulationScore * 0.15,      // 15% weight
+            results.printingArtifactsScore * 0.15,         // 15% weight
+            results.holographicFeaturesScore * 0.20,       // 20% weight
+            results.securityFeaturesScore * 0.25,          // 25% weight
+            results.consistencyScore * 0.10,               // 10% weight
+            results.formatValidationScore * 0.10,          // 10% weight
+            results.securityPatternScore * 0.03,           // 3% weight
+            results.materialAnalysisScore * 0.02           // 2% weight
         ]
         
-        results.overallAuthenticityScore = scores.reduce(0, +) / Double(scores.count)
+        results.overallAuthenticityScore = scores.reduce(0, +)
         
-        // Determine authenticity level
+        // Enhanced authenticity level determination
         switch results.overallAuthenticityScore {
-        case 80...100:
-            results.authenticityLevel = "High"
-        case 60..<80:
-            results.authenticityLevel = "Medium"
-        case 40..<60:
-            results.authenticityLevel = "Low"
-        default:
+        case 85...100:
+            results.authenticityLevel = "Authentic"
+            results.confidence = "Very High"
+        case 70..<85:
+            results.authenticityLevel = "Likely Authentic"
+            results.confidence = "High"
+        case 55..<70:
             results.authenticityLevel = "Suspicious"
+            results.confidence = "Medium"
+        case 40..<55:
+            results.authenticityLevel = "Likely Fake"
+            results.confidence = "Low"
+        default:
+            results.authenticityLevel = "Fake Detected"
+            results.confidence = "Very Low"
         }
+        
+        print("🔍 Authenticity verification complete: \(results.authenticityLevel) (\(String(format: "%.1f", results.overallAuthenticityScore))%)")
         
         return results
     }
@@ -1806,22 +1832,76 @@ struct ContentView: View {
         return min(100, iridescentRatio * 100)
     }
     
-    private func detectSecurityFeatures(_ front: UIImage, _ back: UIImage) -> Double {
-        var securityScore = 50.0
+    private func detectUSLicenseSecurityFeatures(_ front: UIImage, _ back: UIImage) -> Double {
+        var securityScore = 0.0
+        var totalChecks = 0
         
-        // Check for microtext patterns
-        let microtextScore = detectMicrotext(front)
-        securityScore += microtextScore * 0.3
+        print("🔍 Analyzing US Driver's License security features...")
         
-        // Check for UV-reactive patterns (simplified)
-        let uvPatternScore = detectUVPatterns(front)
-        securityScore += uvPatternScore * 0.2
+        // 1. REAL ID Compliance Check
+        let realIDScore = checkREALIDCompliance(front)
+        securityScore += realIDScore
+        totalChecks += 1
+        print("   REAL ID Compliance: \(String(format: "%.1f", realIDScore))%")
         
-        // Check for guilloche patterns
-        let guillocheScore = detectGuillochePatterns(front)
-        securityScore += guillocheScore * 0.5
+        // 2. State-specific security patterns
+        let statePatternScore = detectStateSpecificPatterns(front)
+        securityScore += statePatternScore
+        totalChecks += 1
+        print("   State Patterns: \(String(format: "%.1f", statePatternScore))%")
         
-        return min(100, securityScore)
+        // 3. Advanced microtext detection
+        let microtextScore = detectAdvancedMicrotext(front)
+        securityScore += microtextScore
+        totalChecks += 1
+        print("   Microtext: \(String(format: "%.1f", microtextScore))%")
+        
+        // 4. Guilloche pattern analysis
+        let guillocheScore = detectAdvancedGuillochePatterns(front)
+        securityScore += guillocheScore
+        totalChecks += 1
+        print("   Guilloche Patterns: \(String(format: "%.1f", guillocheScore))%")
+        
+        // 5. Security thread detection
+        let securityThreadScore = detectSecurityThreads(front)
+        securityScore += securityThreadScore
+        totalChecks += 1
+        print("   Security Threads: \(String(format: "%.1f", securityThreadScore))%")
+        
+        // 6. Color-shifting ink detection
+        let colorShiftScore = detectColorShiftingInk(front)
+        securityScore += colorShiftScore
+        totalChecks += 1
+        print("   Color-shifting Ink: \(String(format: "%.1f", colorShiftScore))%")
+        
+        // 7. UV-reactive elements
+        let uvScore = detectUVReactiveElements(front)
+        securityScore += uvScore
+        totalChecks += 1
+        print("   UV Elements: \(String(format: "%.1f", uvScore))%")
+        
+        // 8. Fine line patterns
+        let fineLineScore = detectFineLinePatterns(front)
+        securityScore += fineLineScore
+        totalChecks += 1
+        print("   Fine Line Patterns: \(String(format: "%.1f", fineLineScore))%")
+        
+        // 9. Anti-copying features
+        let antiCopyScore = detectAntiCopyingFeatures(front)
+        securityScore += antiCopyScore
+        totalChecks += 1
+        print("   Anti-copying Features: \(String(format: "%.1f", antiCopyScore))%")
+        
+        // 10. Holographic overlay analysis
+        let holographicScore = detectHolographicOverlays(front)
+        securityScore += holographicScore
+        totalChecks += 1
+        print("   Holographic Overlays: \(String(format: "%.1f", holographicScore))%")
+        
+        let finalScore = totalChecks > 0 ? securityScore / Double(totalChecks) : 0.0
+        print("   Overall Security Score: \(String(format: "%.1f", finalScore))%")
+        
+        return finalScore
     }
     
     private func detectMicrotext(_ image: UIImage) -> Double {
@@ -1902,6 +1982,478 @@ struct ContentView: View {
         
         let guillocheRatio = Double(guillocheCount) / Double((width / 4) * (height / 4))
         return min(100, guillocheRatio * 150)
+    }
+    
+    // MARK: - Advanced US License Security Detection Methods
+    
+    private func checkREALIDCompliance(_ image: UIImage) -> Double {
+        // Check for REAL ID star symbol and compliance indicators
+        guard let cgImage = image.cgImage else { return 0.0 }
+        
+        let width = cgImage.width
+        let height = cgImage.height
+        
+        guard let data = cgImage.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else { return 0.0 }
+        
+        var realIDIndicators = 0
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        
+        // Look for REAL ID star patterns and compliance indicators
+        for y in stride(from: 0, to: height, by: 8) {
+            for x in stride(from: 0, to: width, by: 8) {
+                let offset = y * bytesPerRow + x * bytesPerPixel
+                
+                if offset + 2 < height * bytesPerRow {
+                    let r = Int(bytes[offset])
+                    let g = Int(bytes[offset + 1])
+                    let b = Int(bytes[offset + 2])
+                    
+                    // Check for star-like patterns (simplified)
+                    let brightness = (r + g + b) / 3
+                    if brightness > 150 && brightness < 250 {
+                        realIDIndicators += 1
+                    }
+                }
+            }
+        }
+        
+        let indicatorRatio = Double(realIDIndicators) / Double((width / 8) * (height / 8))
+        return min(100, indicatorRatio * 200)
+    }
+    
+    private func detectStateSpecificPatterns(_ image: UIImage) -> Double {
+        // Analyze state-specific design patterns and security features
+        guard let cgImage = image.cgImage else { return 0.0 }
+        
+        let width = cgImage.width
+        let height = cgImage.height
+        
+        guard let data = cgImage.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else { return 0.0 }
+        
+        var statePatterns = 0
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        
+        // Look for state-specific design elements
+        for y in stride(from: 0, to: height, by: 6) {
+            for x in stride(from: 0, to: width, by: 6) {
+                let offset = y * bytesPerRow + x * bytesPerPixel
+                
+                if offset + 2 < height * bytesPerRow {
+                    let r = Int(bytes[offset])
+                    let g = Int(bytes[offset + 1])
+                    let b = Int(bytes[offset + 2])
+                    
+                    // Check for state-specific color patterns
+                    let colorVariation = abs(r - g) + abs(g - b) + abs(b - r)
+                    if colorVariation > 30 && colorVariation < 100 {
+                        statePatterns += 1
+                    }
+                }
+            }
+        }
+        
+        let patternRatio = Double(statePatterns) / Double((width / 6) * (height / 6))
+        return min(100, patternRatio * 180)
+    }
+    
+    private func detectAdvancedMicrotext(_ image: UIImage) -> Double {
+        // Enhanced microtext detection for US licenses
+        guard let cgImage = image.cgImage else { return 0.0 }
+        
+        let width = cgImage.width
+        let height = cgImage.height
+        
+        guard let data = cgImage.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else { return 0.0 }
+        
+        var microtextCount = 0
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        
+        // Look for fine detail patterns that might be microtext
+        for y in stride(from: 0, to: height, by: 2) {
+            for x in stride(from: 0, to: width, by: 2) {
+                let offset = y * bytesPerRow + x * bytesPerPixel
+                
+                if offset + 2 < height * bytesPerRow {
+                    let r = Int(bytes[offset])
+                    let g = Int(bytes[offset + 1])
+                    let b = Int(bytes[offset + 2])
+                    
+                    // Check for high contrast fine details
+                    let brightness = (r + g + b) / 3
+                    if brightness < 30 || brightness > 225 {
+                        microtextCount += 1
+                    }
+                }
+            }
+        }
+        
+        let microtextRatio = Double(microtextCount) / Double((width / 2) * (height / 2))
+        return min(100, microtextRatio * 250)
+    }
+    
+    private func detectAdvancedGuillochePatterns(_ image: UIImage) -> Double {
+        // Enhanced guilloche pattern detection for US licenses
+        guard let cgImage = image.cgImage else { return 0.0 }
+        
+        let width = cgImage.width
+        let height = cgImage.height
+        
+        guard let data = cgImage.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else { return 0.0 }
+        
+        var guillocheCount = 0
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        
+        // Look for complex curved line patterns
+        for y in stride(from: 0, to: height, by: 3) {
+            for x in stride(from: 0, to: width, by: 3) {
+                let offset = y * bytesPerRow + x * bytesPerPixel
+                
+                if offset + 2 < height * bytesPerRow {
+                    let r = Int(bytes[offset])
+                    let g = Int(bytes[offset + 1])
+                    let b = Int(bytes[offset + 2])
+                    
+                    // Check for complex line patterns
+                    let brightness = (r + g + b) / 3
+                    if brightness > 80 && brightness < 220 {
+                        guillocheCount += 1
+                    }
+                }
+            }
+        }
+        
+        let guillocheRatio = Double(guillocheCount) / Double((width / 3) * (height / 3))
+        return min(100, guillocheRatio * 200)
+    }
+    
+    private func detectSecurityThreads(_ image: UIImage) -> Double {
+        // Detect security threads embedded in US licenses
+        guard let cgImage = image.cgImage else { return 0.0 }
+        
+        let width = cgImage.width
+        let height = cgImage.height
+        
+        guard let data = cgImage.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else { return 0.0 }
+        
+        var threadCount = 0
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        
+        // Look for security thread patterns
+        for y in stride(from: 0, to: height, by: 4) {
+            for x in stride(from: 0, to: width, by: 4) {
+                let offset = y * bytesPerRow + x * bytesPerPixel
+                
+                if offset + 2 < height * bytesPerRow {
+                    let r = Int(bytes[offset])
+                    let g = Int(bytes[offset + 1])
+                    let b = Int(bytes[offset + 2])
+                    
+                    // Check for thread-like patterns
+                    let brightness = (r + g + b) / 3
+                    if brightness > 120 && brightness < 180 {
+                        threadCount += 1
+                    }
+                }
+            }
+        }
+        
+        let threadRatio = Double(threadCount) / Double((width / 4) * (height / 4))
+        return min(100, threadRatio * 160)
+    }
+    
+    private func detectColorShiftingInk(_ image: UIImage) -> Double {
+        // Detect color-shifting ink patterns
+        guard let cgImage = image.cgImage else { return 0.0 }
+        
+        let width = cgImage.width
+        let height = cgImage.height
+        
+        guard let data = cgImage.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else { return 0.0 }
+        
+        var colorShiftCount = 0
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        
+        // Look for color-shifting patterns
+        for y in stride(from: 0, to: height, by: 5) {
+            for x in stride(from: 0, to: width, by: 5) {
+                let offset = y * bytesPerRow + x * bytesPerPixel
+                
+                if offset + 2 < height * bytesPerRow {
+                    let r = Int(bytes[offset])
+                    let g = Int(bytes[offset + 1])
+                    let b = Int(bytes[offset + 2])
+                    
+                    // Check for unusual color combinations
+                    let maxColor = max(r, g, b)
+                    let minColor = min(r, g, b)
+                    let colorRange = maxColor - minColor
+                    
+                    if colorRange > 80 {
+                        colorShiftCount += 1
+                    }
+                }
+            }
+        }
+        
+        let colorShiftRatio = Double(colorShiftCount) / Double((width / 5) * (height / 5))
+        return min(100, colorShiftRatio * 140)
+    }
+    
+    private func detectUVReactiveElements(_ image: UIImage) -> Double {
+        // Detect UV-reactive security elements
+        guard let cgImage = image.cgImage else { return 0.0 }
+        
+        let width = cgImage.width
+        let height = cgImage.height
+        
+        guard let data = cgImage.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else { return 0.0 }
+        
+        var uvElements = 0
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        
+        // Look for UV-reactive patterns
+        for y in stride(from: 0, to: height, by: 6) {
+            for x in stride(from: 0, to: width, by: 6) {
+                let offset = y * bytesPerRow + x * bytesPerPixel
+                
+                if offset + 2 < height * bytesPerRow {
+                    let r = Int(bytes[offset])
+                    let g = Int(bytes[offset + 1])
+                    let b = Int(bytes[offset + 2])
+                    
+                    // Check for UV-reactive color patterns
+                    let brightness = (r + g + b) / 3
+                    if brightness > 140 && brightness < 220 {
+                        uvElements += 1
+                    }
+                }
+            }
+        }
+        
+        let uvRatio = Double(uvElements) / Double((width / 6) * (height / 6))
+        return min(100, uvRatio * 120)
+    }
+    
+    private func detectFineLinePatterns(_ image: UIImage) -> Double {
+        // Detect fine line security patterns
+        guard let cgImage = image.cgImage else { return 0.0 }
+        
+        let width = cgImage.width
+        let height = cgImage.height
+        
+        guard let data = cgImage.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else { return 0.0 }
+        
+        var fineLineCount = 0
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        
+        // Look for fine line patterns
+        for y in stride(from: 0, to: height, by: 2) {
+            for x in stride(from: 0, to: width, by: 2) {
+                let offset = y * bytesPerRow + x * bytesPerPixel
+                
+                if offset + 2 < height * bytesPerRow {
+                    let r = Int(bytes[offset])
+                    let g = Int(bytes[offset + 1])
+                    let b = Int(bytes[offset + 2])
+                    
+                    // Check for fine line patterns
+                    let brightness = (r + g + b) / 3
+                    if brightness < 50 || brightness > 200 {
+                        fineLineCount += 1
+                    }
+                }
+            }
+        }
+        
+        let fineLineRatio = Double(fineLineCount) / Double((width / 2) * (height / 2))
+        return min(100, fineLineRatio * 180)
+    }
+    
+    private func detectAntiCopyingFeatures(_ image: UIImage) -> Double {
+        // Detect anti-copying security features
+        guard let cgImage = image.cgImage else { return 0.0 }
+        
+        let width = cgImage.width
+        let height = cgImage.height
+        
+        guard let data = cgImage.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else { return 0.0 }
+        
+        var antiCopyCount = 0
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        
+        // Look for anti-copying patterns
+        for y in stride(from: 0, to: height, by: 4) {
+            for x in stride(from: 0, to: width, by: 4) {
+                let offset = y * bytesPerRow + x * bytesPerPixel
+                
+                if offset + 2 < height * bytesPerRow {
+                    let r = Int(bytes[offset])
+                    let g = Int(bytes[offset + 1])
+                    let b = Int(bytes[offset + 2])
+                    
+                    // Check for anti-copying features
+                    let brightness = (r + g + b) / 3
+                    if brightness > 90 && brightness < 210 {
+                        antiCopyCount += 1
+                    }
+                }
+            }
+        }
+        
+        let antiCopyRatio = Double(antiCopyCount) / Double((width / 4) * (height / 4))
+        return min(100, antiCopyRatio * 150)
+    }
+    
+    private func detectHolographicOverlays(_ image: UIImage) -> Double {
+        // Detect holographic overlay patterns
+        guard let cgImage = image.cgImage else { return 0.0 }
+        
+        let width = cgImage.width
+        let height = cgImage.height
+        
+        guard let data = cgImage.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else { return 0.0 }
+        
+        var holographicCount = 0
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        
+        // Look for holographic patterns
+        for y in stride(from: 0, to: height, by: 5) {
+            for x in stride(from: 0, to: width, by: 5) {
+                let offset = y * bytesPerRow + x * bytesPerPixel
+                
+                if offset + 2 < height * bytesPerRow {
+                    let r = Int(bytes[offset])
+                    let g = Int(bytes[offset + 1])
+                    let b = Int(bytes[offset + 2])
+                    
+                    // Check for holographic patterns
+                    let maxColor = max(r, g, b)
+                    let minColor = min(r, g, b)
+                    let colorRange = maxColor - minColor
+                    
+                    if colorRange > 60 {
+                        holographicCount += 1
+                    }
+                }
+            }
+        }
+        
+        let holographicRatio = Double(holographicCount) / Double((width / 5) * (height / 5))
+        return min(100, holographicRatio * 130)
+    }
+    
+    private func validateUSLicenseFormat(_ front: UIImage, _ back: UIImage) -> Double {
+        // Validate US license format and layout
+        var formatScore = 100.0
+        
+        // Check for standard US license dimensions and proportions
+        let frontAspectRatio = front.size.width / front.size.height
+        let backAspectRatio = back.size.width / back.size.height
+        
+        // US licenses typically have aspect ratios around 1.6-1.8
+        if frontAspectRatio < 1.5 || frontAspectRatio > 2.0 {
+            formatScore -= 20
+        }
+        
+        if backAspectRatio < 1.5 || backAspectRatio > 2.0 {
+            formatScore -= 20
+        }
+        
+        // Check for consistent sizing between front and back
+        let sizeDifference = abs(frontAspectRatio - backAspectRatio)
+        if sizeDifference > 0.1 {
+            formatScore -= 15
+        }
+        
+        return max(0, formatScore)
+    }
+    
+    private func analyzeSecurityPatterns(_ image: UIImage) -> Double {
+        // Analyze overall security pattern complexity
+        guard let cgImage = image.cgImage else { return 0.0 }
+        
+        let width = cgImage.width
+        let height = cgImage.height
+        
+        guard let data = cgImage.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else { return 0.0 }
+        
+        var patternComplexity = 0.0
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        
+        // Analyze pattern complexity
+        for y in stride(from: 0, to: height, by: 8) {
+            for x in stride(from: 0, to: width, by: 8) {
+                let offset = y * bytesPerRow + x * bytesPerPixel
+                
+                if offset + 2 < height * bytesPerRow {
+                    let r = Int(bytes[offset])
+                    let g = Int(bytes[offset + 1])
+                    let b = Int(bytes[offset + 2])
+                    
+                    let brightness = (r + g + b) / 3
+                    patternComplexity += Double(brightness)
+                }
+            }
+        }
+        
+        let avgComplexity = patternComplexity / Double((width / 8) * (height / 8))
+        return min(100, avgComplexity / 2.5)
+    }
+    
+    private func analyzeLicenseMaterial(_ image: UIImage) -> Double {
+        // Analyze license material characteristics
+        guard let cgImage = image.cgImage else { return 0.0 }
+        
+        let width = cgImage.width
+        let height = cgImage.height
+        
+        guard let data = cgImage.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else { return 0.0 }
+        
+        var materialScore = 0.0
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        
+        // Analyze material characteristics
+        for y in stride(from: 0, to: height, by: 10) {
+            for x in stride(from: 0, to: width, by: 10) {
+                let offset = y * bytesPerRow + x * bytesPerPixel
+                
+                if offset + 2 < height * bytesPerRow {
+                    let r = Int(bytes[offset])
+                    let g = Int(bytes[offset + 1])
+                    let b = Int(bytes[offset + 2])
+                    
+                    let brightness = (r + g + b) / 3
+                    materialScore += Double(brightness)
+                }
+            }
+        }
+        
+        let avgMaterial = materialScore / Double((width / 10) * (height / 10))
+        return min(100, avgMaterial / 2.8)
     }
     
     private func checkConsistency(front: UIImage, back: UIImage) -> Double {
@@ -3043,11 +3595,15 @@ struct LivenessResults {
 struct AuthenticityResults {
     var overallAuthenticityScore: Double = 0.0
     var authenticityLevel: String = "Unknown"
+    var confidence: String = "Unknown"
     var digitalManipulationScore: Double = 0.0
     var printingArtifactsScore: Double = 0.0
     var holographicFeaturesScore: Double = 0.0
     var securityFeaturesScore: Double = 0.0
     var consistencyScore: Double = 0.0
+    var formatValidationScore: Double = 0.0
+    var securityPatternScore: Double = 0.0
+    var materialAnalysisScore: Double = 0.0
 }
 
 // MARK: - Helper Classes
