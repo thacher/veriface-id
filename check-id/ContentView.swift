@@ -17,12 +17,16 @@ struct ContentView: View {
     @State private var backImage: UIImage?
     @State private var showingImagePicker = false
     @State private var showingCamera = false
+    @State private var showingVideoCapture = false
     @State private var isFrontImage = true
     @State private var showingValidationAlert = false
     @State private var validationMessage = ""
     @State private var isAnimating = false
     @State private var isProcessing = false
     @State private var extractedData: LicenseData?
+    @State private var faceDetectionResults: FaceDetectionResults?
+    @State private var livenessResults: LivenessResults?
+    @State private var authenticityResults: AuthenticityResults?
     
     // Helper function to convert all caps text to proper capitalization
     private func convertAllCapsToProperCase(_ text: String) -> String {
@@ -144,6 +148,7 @@ struct ContentView: View {
                                 isFrontImage: true,
                                 showingImagePicker: $showingImagePicker,
                                 showingCamera: $showingCamera,
+                                showingVideoCapture: $showingVideoCapture,
                                 onCaptureRequest: { isFront in
                                     isFrontImage = isFront
                                 }
@@ -156,13 +161,14 @@ struct ContentView: View {
                                 isFrontImage: false,
                                 showingImagePicker: $showingImagePicker,
                                 showingCamera: $showingCamera,
+                                showingVideoCapture: $showingVideoCapture,
                                 onCaptureRequest: { isFront in
                                     isFrontImage = isFront
                                 }
                             )
                             
-                            // Validation section
-                            ValidationSection(
+                            // Advanced verification section
+                            AdvancedVerificationSection(
                                 canValidate: canValidate,
                                 isProcessing: isProcessing,
                                 action: validateLicense
@@ -186,7 +192,19 @@ struct ContentView: View {
             CameraView(image: isFrontImage ? $frontImage : $backImage)
         }
         .sheet(isPresented: $showingValidationAlert) {
-            ValidationResultView(message: validationMessage)
+            ValidationResultView(
+                message: validationMessage,
+                faceResults: faceDetectionResults,
+                livenessResults: livenessResults,
+                authenticityResults: authenticityResults
+            )
+        }
+        .sheet(isPresented: $showingVideoCapture) {
+            VideoCaptureView(
+                onVideoCaptured: { videoURL in
+                    processVideoForLiveness(videoURL)
+                }
+            )
         }
     }
     
@@ -203,14 +221,22 @@ struct ContentView: View {
         
         isProcessing = true
         
-        // Process images asynchronously
+        // Process images asynchronously with advanced verification
         DispatchQueue.global(qos: .userInitiated).async {
             let licenseData = processLicenseImages(front: front, back: back)
+            
+            // Perform face detection on front image
+            let faceResults = detectFacesInLicense(front)
+            
+            // Perform authenticity checks
+            let authenticityResults = performAuthenticityChecks(front: front, back: back)
             
             DispatchQueue.main.async {
                 self.isProcessing = false
                 self.extractedData = licenseData
-                self.showValidationResults(licenseData)
+                self.faceDetectionResults = faceResults
+                self.authenticityResults = authenticityResults
+                self.showValidationResults(licenseData, faceResults: faceResults, authenticityResults: authenticityResults)
             }
         }
     }
@@ -265,11 +291,11 @@ struct ContentView: View {
         var totalSharpness: Double = 0
         var pixelCount = 0
         
-        // Sample pixels for analysis (every 10th pixel for performance)
-        for y in stride(from: 0, to: height, by: 10) {
-            for x in stride(from: 0, to: width, by: 10) {
+        // Sample pixels for analysis (every 20th pixel for performance)
+        for y in stride(from: 0, to: height, by: 20) {
+            for x in stride(from: 0, to: width, by: 20) {
                 let offset = y * bytesPerRow + x * bytesPerPixel
-                if offset + 2 < totalBytes {
+                if offset + 0 < totalBytes {
                     let r = Double(bytes[offset])
                     let g = Double(bytes[offset + 1])
                     let b = Double(bytes[offset + 2])
@@ -1015,7 +1041,7 @@ struct ContentView: View {
     
 
     
-    private func showValidationResults(_ data: LicenseData) {
+    private func showValidationResults(_ data: LicenseData, faceResults: FaceDetectionResults, authenticityResults: AuthenticityResults) {
         var message = ""
         
         // CONSOLE DEBUG - This will show in Xcode console only
@@ -1092,6 +1118,856 @@ struct ContentView: View {
         validationMessage = message
         showingValidationAlert = true
     }
+    
+    // MARK: - Face Detection Methods
+    
+    private func detectFacesInLicense(_ image: UIImage) -> FaceDetectionResults {
+        var results = FaceDetectionResults()
+        
+        guard let cgImage = image.cgImage else {
+            results.error = "Failed to process image for face detection"
+            return results
+        }
+        
+        let requestHandler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        
+        // Face detection request
+        let faceDetectionRequest = VNDetectFaceLandmarksRequest { request, error in
+            if let error = error {
+                results.error = "Face detection error: \(error.localizedDescription)"
+                return
+            }
+            
+            if let observations = request.results as? [VNFaceObservation] {
+                results.faceCount = observations.count
+                results.faces = observations
+                
+                // Analyze each detected face
+                for (index, face) in observations.enumerated() {
+                    let faceAnalysis = analyzeFace(face, in: image)
+                    results.faceAnalyses.append(faceAnalysis)
+                    
+                    print("🔍 Face \(index + 1) Analysis:")
+                    print("   Confidence: \(String(format: "%.2f", face.confidence * 100))%")
+                    print("   Bounding Box: \(face.boundingBox)")
+                    print("   Quality Score: \(faceAnalysis.qualityScore)")
+                    print("   Face Size: \(faceAnalysis.faceSize)")
+                    print("   Position: \(faceAnalysis.position)")
+                }
+            }
+        }
+        
+        // Face quality assessment request
+        let faceQualityRequest = VNDetectFaceRectanglesRequest { request, error in
+            if let observations = request.results as? [VNFaceObservation] {
+                results.qualityAssessment = assessFaceQuality(observations, in: image)
+            }
+        }
+        
+        do {
+            try requestHandler.perform([faceDetectionRequest, faceQualityRequest])
+        } catch {
+            results.error = "Failed to perform face detection: \(error.localizedDescription)"
+        }
+        
+        return results
+    }
+    
+    private func analyzeFace(_ face: VNFaceObservation, in image: UIImage) -> FaceAnalysis {
+        var analysis = FaceAnalysis()
+        
+        // Calculate face size relative to image
+        let imageSize = CGSize(width: image.size.width, height: image.size.height)
+        let faceSize = CGSize(
+            width: face.boundingBox.width * imageSize.width,
+            height: face.boundingBox.height * imageSize.height
+        )
+        
+        analysis.faceSize = faceSize
+        analysis.confidence = face.confidence
+        
+        // Determine face position
+        let centerX = face.boundingBox.midX
+        let centerY = face.boundingBox.midY
+        
+        if centerX < 0.33 {
+            analysis.position = "Left"
+        } else if centerX > 0.67 {
+            analysis.position = "Right"
+        } else {
+            analysis.position = "Center"
+        }
+        
+        // Calculate quality score based on multiple factors
+        var qualityScore = 0.0
+        
+        // Size factor (prefer larger faces)
+        let sizeFactor = min(face.boundingBox.width * face.boundingBox.height * 100, 1.0)
+        qualityScore += sizeFactor * 0.3
+        
+        // Confidence factor
+        qualityScore += Double(face.confidence) * 0.4
+        
+        // Position factor (prefer center)
+        let positionFactor = centerX >= 0.3 && centerX <= 0.7 && centerY >= 0.3 && centerY <= 0.7 ? 1.0 : 0.5
+        qualityScore += positionFactor * 0.3
+        
+        analysis.qualityScore = qualityScore
+        
+        // Check for landmarks
+        if let landmarks = face.landmarks {
+            analysis.hasEyes = landmarks.leftEye != nil && landmarks.rightEye != nil
+            analysis.hasNose = landmarks.nose != nil
+            analysis.hasMouth = landmarks.outerLips != nil
+            analysis.hasFaceContour = landmarks.faceContour != nil
+        }
+        
+        return analysis
+    }
+    
+    private func assessFaceQuality(_ faces: [VNFaceObservation], in image: UIImage) -> FaceQualityAssessment {
+        var assessment = FaceQualityAssessment()
+        
+        guard !faces.isEmpty else {
+            assessment.overallQuality = "No faces detected"
+            assessment.recommendations = ["Ensure the license photo is clearly visible", "Check lighting conditions"]
+            return assessment
+        }
+        
+        let bestFace = faces.max { $0.confidence < $1.confidence } ?? faces[0]
+        // Size assessment
+        let faceArea = bestFace.boundingBox.width * bestFace.boundingBox.height
+        if faceArea > 0.1 {
+            assessment.sizeQuality = "Good"
+        } else if faceArea > 0.05 {
+            assessment.sizeQuality = "Fair"
+        } else {
+            assessment.sizeQuality = "Poor"
+        }
+        
+        // Position assessment
+        let centerX = bestFace.boundingBox.midX
+        let centerY = bestFace.boundingBox.midY
+        
+        if centerX >= 0.3 && centerX <= 0.7 && centerY >= 0.3 && centerY <= 0.7 {
+            assessment.positionQuality = "Good"
+        } else {
+            assessment.positionQuality = "Off-center"
+        }
+        
+        // Confidence assessment
+        if bestFace.confidence > 0.8 {
+            assessment.confidenceQuality = "High"
+        } else if bestFace.confidence > 0.6 {
+            assessment.confidenceQuality = "Medium"
+        } else {
+            assessment.confidenceQuality = "Low"
+        }
+        
+        // Overall quality
+        let qualityFactors = [assessment.sizeQuality, assessment.positionQuality, assessment.confidenceQuality]
+        let goodFactors = qualityFactors.filter { $0 == "Good" || $0 == "High" }.count
+        
+        switch goodFactors {
+        case 3:
+            assessment.overallQuality = "Excellent"
+        case 2:
+            assessment.overallQuality = "Good"
+        case 1:
+            assessment.overallQuality = "Fair"
+        default:
+            assessment.overallQuality = "Poor"
+        }
+        
+        // Generate recommendations
+        var recommendations: [String] = []
+        
+        if assessment.sizeQuality == "Poor" {
+            recommendations.append("Move closer to capture larger face image")
+        }
+        
+        if assessment.positionQuality == "Off-center" {
+            recommendations.append("Center the face in the frame")
+        }
+        
+        if assessment.confidenceQuality == "Low" {
+            recommendations.append("Ensure good lighting and clear visibility")
+        }
+        
+        if recommendations.isEmpty {
+            recommendations.append("Face detection quality is good")
+        }
+        
+        assessment.recommendations = recommendations
+        
+        return assessment
+    }
+    
+    // MARK: - Liveness Detection Methods
+    
+    private func processVideoForLiveness(_ videoURL: URL) {
+        isProcessing = true
+        
+        DispatchQueue.global(qos: .userInitiated).async {
+            let livenessResults = analyzeLivenessFromVideo(videoURL)
+            
+            DispatchQueue.main.async {
+                self.isProcessing = false
+                self.livenessResults = livenessResults
+                
+                // Show liveness results
+                var message = "🎥 Liveness Detection Results\n\n"
+                message += "Overall Score: \(livenessResults.overallScore)%\n"
+                message += "Motion Detection: \(livenessResults.motionDetected ? "✅" : "❌")\n"
+                message += "Blink Detection: \(livenessResults.blinkDetected ? "✅" : "❌")\n"
+                message += "Head Movement: \(livenessResults.headMovementDetected ? "✅" : "❌")\n"
+                message += "Duration: \(String(format: "%.1f", livenessResults.duration))s\n\n"
+                
+                if livenessResults.overallScore > 70 {
+                    message += "✅ Liveness verification passed"
+                } else {
+                    message += "⚠️ Liveness verification needs improvement"
+                }
+                
+                self.validationMessage = message
+                self.showingValidationAlert = true
+            }
+        }
+    }
+    
+    private func analyzeLivenessFromVideo(_ videoURL: URL) -> LivenessResults {
+        var results = LivenessResults()
+        
+        // Create AVAsset for video analysis
+        let asset = AVAsset(url: videoURL)
+        let duration = CMTimeGetSeconds(asset.duration)
+        results.duration = duration
+        
+        // Extract frames for analysis
+        let frameExtractor = VideoFrameExtractor()
+        let frames = frameExtractor.extractFrames(from: videoURL, maxFrames: 30)
+        
+        guard !frames.isEmpty else {
+            results.error = "No frames extracted from video"
+            return results
+        }
+        
+        // Analyze motion between frames
+        results.motionDetected = detectMotionBetweenFrames(frames)
+        
+        // Analyze faces in frames for liveness indicators
+        var blinkCount = 0
+        var headMovementDetected = false
+        
+        for (index, frame) in frames.enumerated() {
+            let faceResults = detectFacesInLicense(frame)
+            
+            if let firstFace = faceResults.faces.first {
+                // Check for blink detection (simplified)
+                if index > 0 && index < frames.count - 1 {
+                    let prevFrame = frames[index - 1]
+                    let nextFrame = frames[index + 1]
+                    
+                    if detectBlink(currentFrame: frame, prevFrame: prevFrame, nextFrame: nextFrame) {
+                        blinkCount += 1
+                    }
+                }
+                
+                // Check for head movement
+                if index > 0 {
+                    let prevFace = detectFacesInLicense(frames[index - 1]).faces.first
+                    if let prevFace = prevFace {
+                        let movement = calculateHeadMovement(currentFace: firstFace, previousFace: prevFace)
+                        if movement > 0.05 {
+                            headMovementDetected = true
+                        }
+                    }
+                }
+            }
+        }
+        
+        results.blinkDetected = blinkCount > 0
+        results.headMovementDetected = headMovementDetected
+        
+        // Calculate overall score
+        var score = 0
+        if results.motionDetected { score += 30 }
+        if results.blinkDetected { score += 40 }
+        if results.headMovementDetected { score += 30 }
+        
+        results.overallScore = score
+        
+        return results
+    }
+    
+    private func detectMotionBetweenFrames(_ frames: [UIImage]) -> Bool {
+        guard frames.count > 1 else { return false }
+        
+        var totalMotion = 0.0
+        let motionThreshold = 0.1
+        
+        for i in 1..<frames.count {
+            let motion = calculateFrameDifference(frames[i-1], frames[i])
+            totalMotion += motion
+        }
+        
+        let averageMotion = totalMotion / Double(frames.count - 1)
+        return averageMotion > motionThreshold
+    }
+    
+    private func calculateFrameDifference(_ frame1: UIImage, _ frame2: UIImage) -> Double {
+        guard let cgImage1 = frame1.cgImage,
+              let cgImage2 = frame2.cgImage else { return 0.0 }
+        
+        let width = min(cgImage1.width, cgImage2.width)
+        let height = min(cgImage1.height, cgImage2.height)
+        
+        // Sample pixels for difference calculation
+        var totalDifference = 0.0
+        var pixelCount = 0
+        
+        for y in stride(from: 0, to: height, by: 10) {
+            for x in stride(from: 0, to: width, by: 10) {
+                let color1 = getPixelColor(cgImage1, x: x, y: y)
+                let color2 = getPixelColor(cgImage2, x: x, y: y)
+                
+                let difference = abs(color1 - color2)
+                totalDifference += difference
+                pixelCount += 1
+            }
+        }
+        
+        return pixelCount > 0 ? totalDifference / Double(pixelCount) : 0.0
+    }
+    
+    private func getPixelColor(_ cgImage: CGImage, x: Int, y: Int) -> Double {
+        let width = cgImage.width
+        let height = cgImage.height
+        
+        guard x >= 0 && x < width && y >= 0 && y < height else { return 0.0 }
+        
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        
+        guard let data = cgImage.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else { return 0.0 }
+        
+        let offset = y * bytesPerRow + x * bytesPerPixel
+        let r = Double(bytes[offset])
+        let g = Double(bytes[offset + 1])
+        let b = Double(bytes[offset + 2])
+        
+        return (r + g + b) / 3.0
+    }
+    
+    private func detectBlink(currentFrame: UIImage, prevFrame: UIImage, nextFrame: UIImage) -> Bool {
+        // Simplified blink detection - in a real implementation, you'd use more sophisticated eye landmark analysis
+        let currentFaces = detectFacesInLicense(currentFrame).faces
+        let prevFaces = detectFacesInLicense(prevFrame).faces
+        let nextFaces = detectFacesInLicense(nextFrame).faces
+        
+        // Check if face confidence drops temporarily (indicating potential blink)
+        if let currentFace = currentFaces.first,
+           let prevFace = prevFaces.first,
+           let nextFace = nextFaces.first {
+            
+            let confidenceDrop = (prevFace.confidence + nextFace.confidence) / 2 - currentFace.confidence
+            return confidenceDrop > 0.1
+        }
+        
+        return false
+    }
+    
+    private func calculateHeadMovement(currentFace: VNFaceObservation, previousFace: VNFaceObservation) -> Double {
+        let currentCenter = CGPoint(
+            x: currentFace.boundingBox.midX,
+            y: currentFace.boundingBox.midY
+        )
+        
+        let previousCenter = CGPoint(
+            x: previousFace.boundingBox.midX,
+            y: previousFace.boundingBox.midY
+        )
+        
+        let distance = sqrt(
+            pow(currentCenter.x - previousCenter.x, 2) +
+            pow(currentCenter.y - previousCenter.y, 2)
+        )
+        
+        return distance
+    }
+    
+    // MARK: - Authenticity Verification Methods
+    
+    private func performAuthenticityChecks(front: UIImage, back: UIImage) -> AuthenticityResults {
+        var results = AuthenticityResults()
+        
+        // Check for digital manipulation
+        results.digitalManipulationScore = detectDigitalManipulation(front)
+        
+        // Check for printing artifacts
+        results.printingArtifactsScore = detectPrintingArtifacts(front)
+        
+        // Check for holographic features
+        results.holographicFeaturesScore = detectHolographicFeatures(front)
+        
+        // Check for security features
+        results.securityFeaturesScore = detectSecurityFeatures(front, back)
+        
+        // Check for consistency between front and back
+        results.consistencyScore = checkConsistency(front: front, back: back)
+        
+        // Calculate overall authenticity score
+        let scores = [
+            results.digitalManipulationScore,
+            results.printingArtifactsScore,
+            results.holographicFeaturesScore,
+            results.securityFeaturesScore,
+            results.consistencyScore
+        ]
+        
+        results.overallAuthenticityScore = scores.reduce(0, +) / Double(scores.count)
+        
+        // Determine authenticity level
+        switch results.overallAuthenticityScore {
+        case 80...100:
+            results.authenticityLevel = "High"
+        case 60..<80:
+            results.authenticityLevel = "Medium"
+        case 40..<60:
+            results.authenticityLevel = "Low"
+        default:
+            results.authenticityLevel = "Suspicious"
+        }
+        
+        return results
+    }
+    
+    private func detectDigitalManipulation(_ image: UIImage) -> Double {
+        guard let cgImage = image.cgImage else { return 0.0 }
+        
+        var manipulationScore = 100.0
+        
+        // Check for compression artifacts
+        let compressionScore = analyzeCompressionArtifacts(cgImage)
+        manipulationScore -= (100 - compressionScore) * 0.3
+        
+        // Check for noise patterns
+        let noiseScore = analyzeNoisePatterns(cgImage)
+        manipulationScore -= (100 - noiseScore) * 0.3
+        
+        // Check for edge consistency
+        let edgeScore = analyzeEdgeConsistency(cgImage)
+        manipulationScore -= (100 - edgeScore) * 0.4
+        
+        return max(0, manipulationScore)
+    }
+    
+    private func analyzeCompressionArtifacts(_ cgImage: CGImage) -> Double {
+        // Simplified compression artifact detection
+        let width = cgImage.width
+        let height = cgImage.height
+        
+        guard let data = cgImage.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else { return 50.0 }
+        
+        var artifactCount = 0
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        
+        // Look for compression artifacts in a sample of pixels
+        for y in stride(from: 0, to: height, by: 8) {
+            for x in stride(from: 0, to: width, by: 8) {
+                let offset = y * bytesPerRow + x * bytesPerPixel
+                
+                if offset + 2 < height * bytesPerRow {
+                    let r = Int(bytes[offset])
+                    let g = Int(bytes[offset + 1])
+                    let b = Int(bytes[offset + 2])
+                    
+                    // Check for compression artifacts (simplified)
+                    let colorVariation = abs(r - g) + abs(g - b) + abs(b - r)
+                    if colorVariation > 50 {
+                        artifactCount += 1
+                    }
+                }
+            }
+        }
+        
+        let artifactRatio = Double(artifactCount) / Double((width / 8) * (height / 8))
+        return max(0, 100 - artifactRatio * 100)
+    }
+    
+    private func analyzeNoisePatterns(_ cgImage: CGImage) -> Double {
+        // Simplified noise pattern analysis
+        let width = cgImage.width
+        let height = cgImage.height
+        
+        guard let data = cgImage.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else { return 50.0 }
+        
+        var noiseLevel = 0.0
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        
+        // Sample pixels for noise analysis
+        for y in stride(from: 0, to: height, by: 4) {
+            for x in stride(from: 0, to: width, by: 4) {
+                let offset = y * bytesPerRow + x * bytesPerPixel
+                
+                if offset + 2 < height * bytesPerRow {
+                    let r = Double(bytes[offset])
+                    let g = Double(bytes[offset + 1])
+                    let b = Double(bytes[offset + 2])
+                    
+                    // Calculate local noise
+                    let avg = (r + g + b) / 3.0
+                    let variance = pow(r - avg, 2) + pow(g - avg, 2) + pow(b - avg, 2)
+                    noiseLevel += sqrt(variance / 3.0)
+                }
+            }
+        }
+        
+        let avgNoise = noiseLevel / Double((width / 4) * (height / 4))
+        return max(0, 100 - avgNoise / 2)
+    }
+    
+    private func analyzeEdgeConsistency(_ cgImage: CGImage) -> Double {
+        // Simplified edge consistency analysis
+        let width = cgImage.width
+        let height = cgImage.height
+        
+        guard let data = cgImage.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else { return 50.0 }
+        
+        var edgeConsistency = 0.0
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        
+        // Analyze edges for consistency
+        for y in stride(from: 1, to: height - 1, by: 4) {
+            for x in stride(from: 1, to: width - 1, by: 4) {
+                let currentOffset = y * bytesPerRow + x * bytesPerPixel
+                let leftOffset = y * bytesPerRow + (x - 1) * bytesPerPixel
+                let rightOffset = y * bytesPerRow + (x + 1) * bytesPerPixel
+                
+                if currentOffset + 2 < height * bytesPerRow &&
+                   leftOffset + 2 < height * bytesPerRow &&
+                   rightOffset + 2 < height * bytesPerRow {
+                    
+                    let currentR = Double(bytes[currentOffset])
+                    let leftR = Double(bytes[leftOffset])
+                    let rightR = Double(bytes[rightOffset])
+                    
+                    let edgeStrength = abs(currentR - leftR) + abs(currentR - rightR)
+                    edgeConsistency += edgeStrength
+                }
+            }
+        }
+        
+        let avgEdgeConsistency = edgeConsistency / Double((width / 4) * (height / 4))
+        return min(100, avgEdgeConsistency / 2)
+    }
+    
+    private func detectPrintingArtifacts(_ image: UIImage) -> Double {
+        // Simplified printing artifact detection
+        guard let cgImage = image.cgImage else { return 50.0 }
+        
+        var artifactScore = 100.0
+        
+        // Check for moiré patterns (simplified)
+        let moireScore = detectMoirePatterns(cgImage)
+        artifactScore -= (100 - moireScore) * 0.5
+        
+        // Check for halftone patterns
+        let halftoneScore = detectHalftonePatterns(cgImage)
+        artifactScore -= (100 - halftoneScore) * 0.5
+        
+        return max(0, artifactScore)
+    }
+    
+    private func detectMoirePatterns(_ cgImage: CGImage) -> Double {
+        // Simplified moiré pattern detection
+        let width = cgImage.width
+        let height = cgImage.height
+        
+        guard let data = cgImage.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else { return 50.0 }
+        
+        var moireCount = 0
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        
+        // Look for repeating patterns that might indicate moiré
+        for y in stride(from: 0, to: height, by: 8) {
+            for x in stride(from: 0, to: width, by: 8) {
+                let offset = y * bytesPerRow + x * bytesPerPixel
+                
+                if offset + 2 < height * bytesPerRow {
+                    let r = Int(bytes[offset])
+                    let g = Int(bytes[offset + 1])
+                    let b = Int(bytes[offset + 2])
+                    
+                    // Check for unusual color patterns
+                    if abs(r - g) > 30 && abs(g - b) > 30 {
+                        moireCount += 1
+                    }
+                }
+            }
+        }
+        
+        let moireRatio = Double(moireCount) / Double((width / 8) * (height / 8))
+        return max(0, 100 - moireRatio * 100)
+    }
+    
+    private func detectHalftonePatterns(_ cgImage: CGImage) -> Double {
+        // Simplified halftone pattern detection
+        let width = cgImage.width
+        let height = cgImage.height
+        
+        guard let data = cgImage.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else { return 50.0 }
+        
+        var halftoneCount = 0
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        
+        // Look for dot patterns typical of halftone printing
+        for y in stride(from: 0, to: height, by: 4) {
+            for x in stride(from: 0, to: width, by: 4) {
+                let offset = y * bytesPerRow + x * bytesPerPixel
+                
+                if offset + 2 < height * bytesPerRow {
+                    let r = Int(bytes[offset])
+                    let g = Int(bytes[offset + 1])
+                    let b = Int(bytes[offset + 2])
+                    
+                    // Check for high contrast dots
+                    let brightness = (r + g + b) / 3
+                    if brightness < 50 || brightness > 200 {
+                        halftoneCount += 1
+                    }
+                }
+            }
+        }
+        
+        let halftoneRatio = Double(halftoneCount) / Double((width / 4) * (height / 4))
+        return max(0, 100 - halftoneRatio * 50)
+    }
+    
+    private func detectHolographicFeatures(_ image: UIImage) -> Double {
+        // Simplified holographic feature detection
+        guard let cgImage = image.cgImage else { return 50.0 }
+        
+        var holographicScore = 50.0
+        
+        // Check for iridescent color patterns
+        let iridescentScore = detectIridescentPatterns(cgImage)
+        holographicScore += iridescentScore * 0.5
+        
+        return min(100, holographicScore)
+    }
+    
+    private func detectIridescentPatterns(_ cgImage: CGImage) -> Double {
+        // Simplified iridescent pattern detection
+        let width = cgImage.width
+        let height = cgImage.height
+        
+        guard let data = cgImage.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else { return 0.0 }
+        
+        var iridescentCount = 0
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        
+        // Look for color variations that might indicate holographic features
+        for y in stride(from: 0, to: height, by: 8) {
+            for x in stride(from: 0, to: width, by: 8) {
+                let offset = y * bytesPerRow + x * bytesPerPixel
+                
+                if offset + 2 < height * bytesPerRow {
+                    let r = Int(bytes[offset])
+                    let g = Int(bytes[offset + 1])
+                    let b = Int(bytes[offset + 2])
+                    
+                    // Check for unusual color combinations
+                    let maxColor = max(r, g, b)
+                    let minColor = min(r, g, b)
+                    let colorRange = maxColor - minColor
+                    
+                    if colorRange > 100 {
+                        iridescentCount += 1
+                    }
+                }
+            }
+        }
+        
+        let iridescentRatio = Double(iridescentCount) / Double((width / 8) * (height / 8))
+        return min(100, iridescentRatio * 100)
+    }
+    
+    private func detectSecurityFeatures(_ front: UIImage, _ back: UIImage) -> Double {
+        var securityScore = 50.0
+        
+        // Check for microtext patterns
+        let microtextScore = detectMicrotext(front)
+        securityScore += microtextScore * 0.3
+        
+        // Check for UV-reactive patterns (simplified)
+        let uvPatternScore = detectUVPatterns(front)
+        securityScore += uvPatternScore * 0.2
+        
+        // Check for guilloche patterns
+        let guillocheScore = detectGuillochePatterns(front)
+        securityScore += guillocheScore * 0.5
+        
+        return min(100, securityScore)
+    }
+    
+    private func detectMicrotext(_ image: UIImage) -> Double {
+        // Simplified microtext detection
+        guard let cgImage = image.cgImage else { return 0.0 }
+        
+        let width = cgImage.width
+        let height = cgImage.height
+        
+        guard let data = cgImage.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else { return 0.0 }
+        
+        var microtextCount = 0
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        
+        // Look for fine detail patterns that might be microtext
+        for y in stride(from: 0, to: height, by: 2) {
+            for x in stride(from: 0, to: width, by: 2) {
+                let offset = y * bytesPerRow + x * bytesPerPixel
+                
+                if offset + 2 < height * bytesPerRow {
+                    let r = Int(bytes[offset])
+                    let g = Int(bytes[offset + 1])
+                    let b = Int(bytes[offset + 2])
+                    
+                    // Check for high contrast fine details
+                    let brightness = (r + g + b) / 3
+                    if brightness < 30 || brightness > 225 {
+                        microtextCount += 1
+                    }
+                }
+            }
+        }
+        
+        let microtextRatio = Double(microtextCount) / Double((width / 2) * (height / 2))
+        return min(100, microtextRatio * 200)
+    }
+    
+    private func detectUVPatterns(_ image: UIImage) -> Double {
+        // Simplified UV pattern detection (would require UV camera in real implementation)
+        // This is a placeholder for UV-reactive pattern detection
+        return 50.0
+    }
+    
+    private func detectGuillochePatterns(_ image: UIImage) -> Double {
+        // Simplified guilloche pattern detection
+        guard let cgImage = image.cgImage else { return 0.0 }
+        
+        let width = cgImage.width
+        let height = cgImage.height
+        
+        guard let data = cgImage.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else { return 0.0 }
+        
+        var guillocheCount = 0
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        
+        // Look for curved line patterns typical of guilloche
+        for y in stride(from: 0, to: height, by: 4) {
+            for x in stride(from: 0, to: width, by: 4) {
+                let offset = y * bytesPerRow + x * bytesPerPixel
+                
+                if offset + 2 < height * bytesPerRow {
+                    let r = Int(bytes[offset])
+                    let g = Int(bytes[offset + 1])
+                    let b = Int(bytes[offset + 2])
+                    
+                    // Check for consistent line patterns
+                    let brightness = (r + g + b) / 3
+                    if brightness > 100 && brightness < 200 {
+                        guillocheCount += 1
+                    }
+                }
+            }
+        }
+        
+        let guillocheRatio = Double(guillocheCount) / Double((width / 4) * (height / 4))
+        return min(100, guillocheRatio * 150)
+    }
+    
+    private func checkConsistency(front: UIImage, back: UIImage) -> Double {
+        var consistencyScore = 100.0
+        
+        // Check for consistent image quality
+        let frontQuality = analyzeImageQuality(front)
+        let backQuality = analyzeImageQuality(back)
+        
+        let qualityDifference = abs(frontQuality.brightness - backQuality.brightness) +
+                              abs(frontQuality.contrast - backQuality.contrast) +
+                              abs(frontQuality.sharpness - backQuality.sharpness)
+        
+        consistencyScore -= qualityDifference / 10
+        
+        // Check for consistent color profiles
+        let colorConsistency = checkColorConsistency(front, back)
+        consistencyScore += colorConsistency * 0.3
+        
+        return max(0, min(100, consistencyScore))
+    }
+    
+    private func checkColorConsistency(_ image1: UIImage, _ image2: UIImage) -> Double {
+        // Simplified color consistency check
+        guard let cgImage1 = image1.cgImage,
+              let cgImage2 = image2.cgImage else { return 50.0 }
+        
+        let width1 = cgImage1.width
+        let height1 = cgImage1.height
+        let width2 = cgImage2.width
+        let height2 = cgImage2.height
+        
+        guard let data1 = cgImage1.dataProvider?.data,
+              let bytes1 = CFDataGetBytePtr(data1),
+              let data2 = cgImage2.dataProvider?.data,
+              let bytes2 = CFDataGetBytePtr(data2) else { return 50.0 }
+        
+        var colorDifference = 0.0
+        let sampleSize = min(width1, width2, height1, height2) / 10
+        let bytesPerPixel = 4
+        
+        for y in stride(from: 0, to: sampleSize, by: 4) {
+            for x in stride(from: 0, to: sampleSize, by: 4) {
+                let offset1 = y * width1 * bytesPerPixel + x * bytesPerPixel
+                let offset2 = y * width2 * bytesPerPixel + x * bytesPerPixel
+                
+                if offset1 + 2 < height1 * width1 * bytesPerPixel &&
+                   offset2 + 2 < height2 * width2 * bytesPerPixel {
+                    
+                    let r1 = Double(bytes1[offset1])
+                    let g1 = Double(bytes1[offset1 + 1])
+                    let b1 = Double(bytes1[offset1 + 2])
+                    
+                    let r2 = Double(bytes2[offset2])
+                    let g2 = Double(bytes2[offset2 + 1])
+                    let b2 = Double(bytes2[offset2 + 2])
+                    
+                    let diff = abs(r1 - r2) + abs(g1 - g2) + abs(b1 - b2)
+                    colorDifference += diff
+                }
+            }
+        }
+        
+        let avgDifference = colorDifference / Double((sampleSize / 4) * (sampleSize / 4))
+        return max(0, 100 - avgDifference / 3)
+    }
 }
 
 // Modern header section inspired by Anyline
@@ -1138,6 +2014,7 @@ struct LicenseCaptureSection: View {
     let isFrontImage: Bool
     @Binding var showingImagePicker: Bool
     @Binding var showingCamera: Bool
+    @Binding var showingVideoCapture: Bool
     let onCaptureRequest: (Bool) -> Void
     
     // Image quality state
@@ -1205,6 +2082,18 @@ struct LicenseCaptureSection: View {
                                     showingImagePicker = true
                                 }
                             )
+                            
+                            // Add video capture button for front image
+                            if isFrontImage {
+                                ActionButton(
+                                    icon: "video.fill",
+                                    color: Color(red: 0.8, green: 0.4, blue: 0.2),
+                                    action: {
+                                        onCaptureRequest(isFrontImage)
+                                        showingVideoCapture = true
+                                    }
+                                )
+                            }
                         }
                         .padding(.top, 16)
                         
@@ -1246,6 +2135,22 @@ struct LicenseCaptureSection: View {
                         )
                         
                         Spacer()
+                        
+                        // Add liveness button inline for front image
+                        if isFrontImage {
+                            CaptureOptionButton(
+                                icon: "video.fill",
+                                title: "Liveness",
+                                subtitle: "Video Check",
+                                color: Color(red: 0.8, green: 0.4, blue: 0.2),
+                                action: {
+                                    onCaptureRequest(isFrontImage)
+                                    showingVideoCapture = true
+                                }
+                            )
+                            
+                            Spacer()
+                        }
                     }
                 }
             }
@@ -1280,7 +2185,7 @@ struct LicenseCaptureSection: View {
     // Analyze image quality for display
     private func analyzeImageQualityForDisplay(_ image: UIImage) {
         // Simple quality check for UI display
-        let (brightness, contrast, sharpness, quality) = analyzeImageQuality(image)
+        let (_, _, _, quality) = analyzeImageQuality(image)
         imageQuality = quality
         
         // Show quality guide for poor images
@@ -1611,6 +2516,9 @@ struct CameraView: UIViewControllerRepresentable {
 // Custom validation result view for better readability
 struct ValidationResultView: View {
     let message: String
+    let faceResults: FaceDetectionResults?
+    let livenessResults: LivenessResults?
+    let authenticityResults: AuthenticityResults?
     @Environment(\.presentationMode) var presentationMode
 
     private func openEmailApp() {
@@ -1625,6 +2533,12 @@ struct ValidationResultView: View {
         License Information:
         \(message)
         
+        Face Detection Results:
+        \(formatFaceResults())
+        
+        Authenticity Results:
+        \(formatAuthenticityResults())
+        
         Additional Notes:
         """
         
@@ -1638,6 +2552,35 @@ struct ValidationResultView: View {
         }
     }
     
+    private func formatFaceResults() -> String {
+        guard let faceResults = faceResults else { return "No face detection performed" }
+        
+        var result = "Faces Detected: \(faceResults.faceCount)\n"
+        
+        if let quality = faceResults.qualityAssessment {
+            result += "Overall Quality: \(quality.overallQuality)\n"
+            result += "Size Quality: \(quality.sizeQuality)\n"
+            result += "Position Quality: \(quality.positionQuality)\n"
+            result += "Confidence Quality: \(quality.confidenceQuality)\n"
+            result += "Recommendations: \(quality.recommendations.joined(separator: ", "))\n"
+        }
+        
+        return result
+    }
+    
+    private func formatAuthenticityResults() -> String {
+        guard let authResults = authenticityResults else { return "No authenticity verification performed" }
+        
+        var result = "Overall Authenticity: \(authResults.authenticityLevel) (\(String(format: "%.1f", authResults.overallAuthenticityScore))%)\n"
+        result += "Digital Manipulation: \(String(format: "%.1f", authResults.digitalManipulationScore))%\n"
+        result += "Printing Artifacts: \(String(format: "%.1f", authResults.printingArtifactsScore))%\n"
+        result += "Holographic Features: \(String(format: "%.1f", authResults.holographicFeaturesScore))%\n"
+        result += "Security Features: \(String(format: "%.1f", authResults.securityFeaturesScore))%\n"
+        result += "Consistency: \(String(format: "%.1f", authResults.consistencyScore))%\n"
+        
+        return result
+    }
+    
     var body: some View {
         NavigationView {
             ZStack {
@@ -1649,7 +2592,7 @@ struct ValidationResultView: View {
                     VStack(alignment: .leading, spacing: 24) {
                         // Header
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Validation Results")
+                            Text("Advanced Validation Results")
                                 .font(.system(size: 28, weight: .bold, design: .default))
                                 .foregroundColor(Color(red: 0.1, green: 0.1, blue: 0.2))
                             
@@ -1668,8 +2611,12 @@ struct ValidationResultView: View {
                                 .clipShape(Capsule())
                         }
                         
-                        // Content
+                        // Basic validation results
                         VStack(alignment: .leading, spacing: 16) {
+                            Text("License Data")
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundColor(Color(red: 0.1, green: 0.1, blue: 0.2))
+                            
                             Text(message)
                                 .font(.system(size: 16, weight: .regular, design: .default))
                                 .foregroundColor(Color(red: 0.2, green: 0.2, blue: 0.3))
@@ -1682,6 +2629,94 @@ struct ValidationResultView: View {
                                 .fill(Color.white)
                                 .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 6)
                         )
+                        
+                        // Face detection results
+                        if let faceResults = faceResults {
+                            VStack(alignment: .leading, spacing: 16) {
+                                Text("Face Detection Analysis")
+                                    .font(.system(size: 20, weight: .semibold))
+                                    .foregroundColor(Color(red: 0.1, green: 0.1, blue: 0.2))
+                                
+                                VStack(alignment: .leading, spacing: 12) {
+                                    HStack {
+                                        Text("Faces Detected:")
+                                            .font(.system(size: 16, weight: .medium))
+                                        Spacer()
+                                        Text("\(faceResults.faceCount)")
+                                            .font(.system(size: 16, weight: .semibold))
+                                            .foregroundColor(faceResults.faceCount > 0 ? .green : .red)
+                                    }
+                                    
+                                    if let quality = faceResults.qualityAssessment {
+                                        HStack {
+                                            Text("Overall Quality:")
+                                                .font(.system(size: 16, weight: .medium))
+                                            Spacer()
+                                            Text(quality.overallQuality)
+                                                .font(.system(size: 16, weight: .semibold))
+                                                .foregroundColor(getQualityColor(quality.overallQuality))
+                                        }
+                                        
+                                        if !quality.recommendations.isEmpty {
+                                            VStack(alignment: .leading, spacing: 8) {
+                                                Text("Recommendations:")
+                                                    .font(.system(size: 14, weight: .medium))
+                                                    .foregroundColor(Color(red: 0.4, green: 0.4, blue: 0.5))
+                                                
+                                                ForEach(quality.recommendations, id: \.self) { recommendation in
+                                                    HStack {
+                                                        Text("•")
+                                                            .foregroundColor(.blue)
+                                                        Text(recommendation)
+                                                            .font(.system(size: 14))
+                                                            .foregroundColor(Color(red: 0.3, green: 0.3, blue: 0.4))
+                                                        Spacer()
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(24)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color.white)
+                                    .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 6)
+                            )
+                        }
+                        
+                        // Authenticity results
+                        if let authResults = authenticityResults {
+                            VStack(alignment: .leading, spacing: 16) {
+                                Text("Authenticity Verification")
+                                    .font(.system(size: 20, weight: .semibold))
+                                    .foregroundColor(Color(red: 0.1, green: 0.1, blue: 0.2))
+                                
+                                VStack(alignment: .leading, spacing: 12) {
+                                    HStack {
+                                        Text("Overall Score:")
+                                            .font(.system(size: 16, weight: .medium))
+                                        Spacer()
+                                        Text("\(authResults.authenticityLevel) (\(String(format: "%.1f", authResults.overallAuthenticityScore))%)")
+                                            .font(.system(size: 16, weight: .semibold))
+                                            .foregroundColor(getAuthenticityColor(authResults.overallAuthenticityScore))
+                                    }
+                                    
+                                    AuthenticityScoreRow(title: "Digital Manipulation", score: authResults.digitalManipulationScore)
+                                    AuthenticityScoreRow(title: "Printing Artifacts", score: authResults.printingArtifactsScore)
+                                    AuthenticityScoreRow(title: "Holographic Features", score: authResults.holographicFeaturesScore)
+                                    AuthenticityScoreRow(title: "Security Features", score: authResults.securityFeaturesScore)
+                                    AuthenticityScoreRow(title: "Consistency", score: authResults.consistencyScore)
+                                }
+                            }
+                            .padding(24)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color.white)
+                                    .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 6)
+                            )
+                        }
                         
                         // Report incident button - opens email
                         Button(action: {
@@ -1725,7 +2760,65 @@ struct ValidationResultView: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(Color(red: 0.2, green: 0.6, blue: 1.0))
             )
+        }
+    }
+    
+    private func getQualityColor(_ quality: String) -> Color {
+        switch quality {
+        case "Excellent":
+            return .green
+        case "Good":
+            return .blue
+        case "Fair":
+            return .orange
+        case "Poor":
+            return .red
+        default:
+            return .gray
+        }
+    }
+    
+    private func getAuthenticityColor(_ score: Double) -> Color {
+        switch score {
+        case 80...100:
+            return .green
+        case 60..<80:
+            return .blue
+        case 40..<60:
+            return .orange
+        default:
+            return .red
+        }
+    }
+}
 
+// Authenticity score row component
+struct AuthenticityScoreRow: View {
+    let title: String
+    let score: Double
+    
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(Color(red: 0.4, green: 0.4, blue: 0.5))
+            Spacer()
+            Text("\(String(format: "%.1f", score))%")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(getScoreColor(score))
+        }
+    }
+    
+    private func getScoreColor(_ score: Double) -> Color {
+        switch score {
+        case 80...100:
+            return .green
+        case 60..<80:
+            return .blue
+        case 40..<60:
+            return .orange
+        default:
+            return .red
         }
     }
 }
@@ -1857,7 +2950,6 @@ private func findExactWordMatches(frontWords: [String], barcodeWords: [String]) 
 // Calculate similarity between two strings
 private func calculateSimilarity(_ str1: String, _ str2: String) -> Double {
     let longer = str1.count > str2.count ? str1 : str2
-    let shorter = str1.count > str2.count ? str2 : str1
     
     if longer.count == 0 {
         return 1.0
@@ -1902,6 +2994,409 @@ private func getConfidenceLevel(_ percentage: Int) -> String {
         return "Low"
     default:
         return "Very Low"
+    }
+}
+
+// MARK: - Data Structures
+
+// Face detection results
+struct FaceDetectionResults {
+    var faceCount: Int = 0
+    var faces: [VNFaceObservation] = []
+    var faceAnalyses: [FaceAnalysis] = []
+    var qualityAssessment: FaceQualityAssessment?
+    var error: String?
+}
+
+// Individual face analysis
+struct FaceAnalysis {
+    var confidence: Float = 0.0
+    var faceSize: CGSize = .zero
+    var position: String = "Unknown"
+    var qualityScore: Double = 0.0
+    var hasEyes: Bool = false
+    var hasNose: Bool = false
+    var hasMouth: Bool = false
+    var hasFaceContour: Bool = false
+}
+
+// Face quality assessment
+struct FaceQualityAssessment {
+    var overallQuality: String = "Unknown"
+    var sizeQuality: String = "Unknown"
+    var positionQuality: String = "Unknown"
+    var confidenceQuality: String = "Unknown"
+    var recommendations: [String] = []
+}
+
+// Liveness detection results
+struct LivenessResults {
+    var overallScore: Int = 0
+    var motionDetected: Bool = false
+    var blinkDetected: Bool = false
+    var headMovementDetected: Bool = false
+    var duration: Double = 0.0
+    var error: String?
+}
+
+// Authenticity verification results
+struct AuthenticityResults {
+    var overallAuthenticityScore: Double = 0.0
+    var authenticityLevel: String = "Unknown"
+    var digitalManipulationScore: Double = 0.0
+    var printingArtifactsScore: Double = 0.0
+    var holographicFeaturesScore: Double = 0.0
+    var securityFeaturesScore: Double = 0.0
+    var consistencyScore: Double = 0.0
+}
+
+// MARK: - Helper Classes
+
+// Video frame extractor for liveness detection
+class VideoFrameExtractor {
+    func extractFrames(from videoURL: URL, maxFrames: Int) -> [UIImage] {
+        var frames: [UIImage] = []
+        
+        let asset = AVAsset(url: videoURL)
+        let duration = CMTimeGetSeconds(asset.duration)
+        let frameInterval = duration / Double(maxFrames)
+        
+        let imageGenerator = AVAssetImageGenerator(asset: asset)
+        imageGenerator.appliesPreferredTrackTransform = true
+        imageGenerator.maximumSize = CGSize(width: 640, height: 480)
+        
+        for i in 0..<maxFrames {
+            let time = CMTime(seconds: Double(i) * frameInterval, preferredTimescale: 600)
+            
+            do {
+                let cgImage = try imageGenerator.copyCGImage(at: time, actualTime: nil)
+                let frame = UIImage(cgImage: cgImage)
+                frames.append(frame)
+            } catch {
+                print("Failed to extract frame at time \(time): \(error)")
+            }
+        }
+        
+        return frames
+    }
+}
+
+// MARK: - Video Capture View
+
+struct VideoCaptureView: UIViewControllerRepresentable {
+    let onVideoCaptured: (URL) -> Void
+    @Environment(\.presentationMode) var presentationMode
+    
+    func makeUIViewController(context: Context) -> VideoCaptureViewController {
+        let controller = VideoCaptureViewController()
+        controller.delegate = context.coordinator
+        return controller
+    }
+    
+    func updateUIViewController(_ uiViewController: VideoCaptureViewController, context: Context) {}
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject, VideoCaptureViewControllerDelegate {
+        let parent: VideoCaptureView
+        
+        init(_ parent: VideoCaptureView) {
+            self.parent = parent
+        }
+        
+        func videoCaptureViewController(_ controller: VideoCaptureViewController, didFinishRecording videoURL: URL) {
+            parent.onVideoCaptured(videoURL)
+            parent.presentationMode.wrappedValue.dismiss()
+        }
+        
+        func videoCaptureViewControllerDidCancel(_ controller: VideoCaptureViewController) {
+            parent.presentationMode.wrappedValue.dismiss()
+        }
+    }
+}
+
+// Video capture view controller
+class VideoCaptureViewController: UIViewController {
+    weak var delegate: VideoCaptureViewControllerDelegate?
+    private var captureSession: AVCaptureSession?
+    private var videoOutput: AVCaptureMovieFileOutput?
+    private var previewLayer: AVCaptureVideoPreviewLayer?
+    private var recordButton: UIButton!
+    private var isRecording = false
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        setupCaptureSession()
+        setupUI()
+    }
+    
+    private func setupCaptureSession() {
+        captureSession = AVCaptureSession()
+        
+        guard let session = captureSession,
+              let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front) else {
+            return
+        }
+        
+        do {
+            let input = try AVCaptureDeviceInput(device: camera)
+            if session.canAddInput(input) {
+                session.addInput(input)
+            }
+            
+            videoOutput = AVCaptureMovieFileOutput()
+            if let videoOutput = videoOutput,
+               session.canAddOutput(videoOutput) {
+                session.addOutput(videoOutput)
+            }
+            
+            previewLayer = AVCaptureVideoPreviewLayer(session: session)
+            previewLayer?.videoGravity = .resizeAspectFill
+            
+            if let previewLayer = previewLayer {
+                view.layer.addSublayer(previewLayer)
+                previewLayer.frame = view.bounds
+            }
+            
+        } catch {
+            print("Failed to setup capture session: \(error)")
+        }
+    }
+    
+    private func setupUI() {
+        view.backgroundColor = .black
+        
+        // Add recording indicator label
+        let recordingLabel = UILabel()
+        recordingLabel.text = "Liveness Detection"
+        recordingLabel.textColor = .white
+        recordingLabel.font = UIFont.systemFont(ofSize: 18, weight: .semibold)
+        recordingLabel.textAlignment = .center
+        
+        view.addSubview(recordingLabel)
+        recordingLabel.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            recordingLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            recordingLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 30)
+        ])
+        
+        // Add recording button
+        recordButton = UIButton(type: .system)
+        recordButton.setTitle("Start Recording", for: .normal)
+        recordButton.setTitleColor(.white, for: .normal)
+        recordButton.backgroundColor = .red
+        recordButton.layer.cornerRadius = 25
+        recordButton.layer.shadowColor = UIColor.black.cgColor
+        recordButton.layer.shadowOffset = CGSize(width: 0, height: 4)
+        recordButton.layer.shadowRadius = 8
+        recordButton.layer.shadowOpacity = 0.3
+        recordButton.addTarget(self, action: #selector(toggleRecording), for: .touchUpInside)
+        
+        view.addSubview(recordButton)
+        recordButton.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            recordButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            recordButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -50),
+            recordButton.widthAnchor.constraint(equalToConstant: 120),
+            recordButton.heightAnchor.constraint(equalToConstant: 50)
+        ])
+        
+        // Add cancel button
+        let cancelButton = UIButton(type: .system)
+        cancelButton.setTitle("Cancel", for: .normal)
+        cancelButton.setTitleColor(.white, for: .normal)
+        cancelButton.addTarget(self, action: #selector(cancelRecording), for: .touchUpInside)
+        
+        view.addSubview(cancelButton)
+        cancelButton.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            cancelButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            cancelButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20)
+        ])
+    }
+    
+    @objc private func toggleRecording() {
+        guard let videoOutput = videoOutput else { return }
+        
+        if isRecording {
+            // Stop recording
+            videoOutput.stopRecording()
+            updateButtonState(isRecording: false)
+        } else {
+            // Start recording
+            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let videoURL = documentsPath.appendingPathComponent("liveness_video.mov")
+            
+            videoOutput.startRecording(to: videoURL, recordingDelegate: self)
+            updateButtonState(isRecording: true)
+        }
+    }
+    
+    private func updateButtonState(isRecording: Bool) {
+        self.isRecording = isRecording
+        
+        DispatchQueue.main.async {
+            if isRecording {
+                self.recordButton.setTitle("Stop Recording", for: .normal)
+                self.recordButton.backgroundColor = .systemGreen
+                self.recordButton.setTitleColor(.white, for: .normal)
+                
+                // Add pulsing animation for recording state
+                UIView.animate(withDuration: 0.5, delay: 0, options: [.autoreverse, .repeat], animations: {
+                    self.recordButton.transform = CGAffineTransform(scaleX: 1.1, y: 1.1)
+                })
+            } else {
+                self.recordButton.setTitle("Start Recording", for: .normal)
+                self.recordButton.backgroundColor = .systemRed
+                self.recordButton.setTitleColor(.white, for: .normal)
+                
+                // Remove animation
+                self.recordButton.layer.removeAllAnimations()
+                self.recordButton.transform = .identity
+            }
+        }
+    }
+    
+    @objc private func cancelRecording() {
+        delegate?.videoCaptureViewControllerDidCancel(self)
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        captureSession?.startRunning()
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        captureSession?.stopRunning()
+    }
+}
+
+extension VideoCaptureViewController: AVCaptureFileOutputRecordingDelegate {
+    func fileOutput(_ output: AVCaptureFileOutput, didFinishRecordingTo outputFileURL: URL, from connections: [AVCaptureConnection], error: Error?) {
+        DispatchQueue.main.async {
+            self.updateButtonState(isRecording: false)
+        }
+        
+        if error == nil {
+            delegate?.videoCaptureViewController(self, didFinishRecording: outputFileURL)
+        } else {
+            print("Recording error: \(error?.localizedDescription ?? "Unknown error")")
+        }
+    }
+}
+
+protocol VideoCaptureViewControllerDelegate: AnyObject {
+    func videoCaptureViewController(_ controller: VideoCaptureViewController, didFinishRecording videoURL: URL)
+    func videoCaptureViewControllerDidCancel(_ controller: VideoCaptureViewController)
+}
+
+// MARK: - Advanced Verification Section
+
+struct AdvancedVerificationSection: View {
+    let canValidate: Bool
+    let isProcessing: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            // Header
+            VStack(alignment: .center, spacing: 8) {
+                Text("Advanced License Verification")
+                    .font(.system(size: 22, weight: .semibold, design: .default))
+                    .foregroundColor(Color(red: 0.1, green: 0.1, blue: 0.2))
+                    .multilineTextAlignment(.center)
+                
+                Text("Face detection, liveness verification & authenticity checks")
+                    .font(.system(size: 16, weight: .regular, design: .default))
+                    .foregroundColor(Color(red: 0.5, green: 0.5, blue: 0.6))
+                    .multilineTextAlignment(.center)
+            }
+            
+            // Feature list
+            VStack(alignment: .leading, spacing: 12) {
+                FeatureRow(icon: "face.smiling", title: "Face Detection", description: "Analyze license photo quality and position")
+                FeatureRow(icon: "video.badge.plus", title: "Liveness Detection", description: "Verify real person through video capture")
+                FeatureRow(icon: "shield.checkered", title: "Authenticity Checks", description: "Detect digital manipulation and security features")
+                FeatureRow(icon: "doc.text.magnifyingglass", title: "OCR & Barcode", description: "Extract and validate license data")
+            }
+            .padding(20)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color(red: 0.98, green: 0.98, blue: 1.0))
+            )
+            
+            // Validation button
+            Button(action: action) {
+                HStack(spacing: 16) {
+                    if isProcessing {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(0.9)
+                    } else {
+                        Image(systemName: "checkmark.shield.fill")
+                            .font(.system(size: 20, weight: .semibold))
+                    }
+                    
+                    Text(isProcessing ? "Processing..." : "Start Advanced Verification")
+                        .font(.system(size: 18, weight: .semibold, design: .default))
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 60)
+                .background(
+                    LinearGradient(
+                        gradient: Gradient(colors: canValidate ? 
+                            [Color(red: 0.2, green: 0.6, blue: 1.0), Color(red: 0.1, green: 0.5, blue: 0.9)] : 
+                            [Color(red: 0.8, green: 0.8, blue: 0.8), Color(red: 0.7, green: 0.7, blue: 0.7)]
+                        ),
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .shadow(color: canValidate ? Color(red: 0.2, green: 0.6, blue: 1.0).opacity(0.3) : .clear, radius: 12, x: 0, y: 6)
+                .scaleEffect(canValidate ? 1.0 : 0.98)
+                .animation(.easeInOut(duration: 0.2), value: canValidate)
+            }
+            .disabled(!canValidate || isProcessing)
+        }
+        .padding(24)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.white)
+                .shadow(color: Color.black.opacity(0.06), radius: 16, x: 0, y: 8)
+        )
+    }
+}
+
+// Feature row component
+struct FeatureRow: View {
+    let icon: String
+    let title: String
+    let description: String
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 20, weight: .medium))
+                .foregroundColor(Color(red: 0.2, green: 0.6, blue: 1.0))
+                .frame(width: 24)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Color(red: 0.1, green: 0.1, blue: 0.2))
+                
+                Text(description)
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundColor(Color(red: 0.5, green: 0.5, blue: 0.6))
+            }
+            
+            Spacer()
+        }
     }
 }
 
