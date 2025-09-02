@@ -318,7 +318,7 @@ struct EnhancedVideoCaptureView: View {
                     InstructionRow(icon: "1.circle.fill", text: "Hold your device steady")
                     InstructionRow(icon: "2.circle.fill", text: "Position license in the frame")
                     InstructionRow(icon: "3.circle.fill", text: "Ensure good lighting")
-                    InstructionRow(icon: "4.circle.fill", text: "Keep scanning for 3 seconds")
+                    InstructionRow(icon: "4.circle.fill", text: "Keep scanning for 5 seconds")
                 }
                 .padding(.horizontal, 20)
                 
