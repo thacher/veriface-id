@@ -2713,7 +2713,7 @@ struct LicenseCaptureSection: View {
                         CaptureOptionButton(
                             icon: "video.badge.plus",
                             title: "Video",
-                            subtitle: "Capture",
+                            subtitle: "",
                             color: Color(red: 0.2, green: 0.6, blue: 1.0),
                             action: {
                                 onCaptureRequest(isFrontImage)
@@ -2726,7 +2726,7 @@ struct LicenseCaptureSection: View {
                         CaptureOptionButton(
                             icon: "camera.fill",
                             title: "Camera",
-                            subtitle: "Capture",
+                            subtitle: "",
                             color: Color(red: 0.2, green: 0.6, blue: 1.0),
                             action: {
                                 onCaptureRequest(isFrontImage)
@@ -2883,7 +2883,9 @@ struct CaptureOptionButton: View {
     
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 16) {
+            VStack(spacing: 12) {
+                Spacer()
+                
                 ZStack {
                     Circle()
                         .fill(color.opacity(0.1))
@@ -2894,16 +2896,12 @@ struct CaptureOptionButton: View {
                         .foregroundColor(color)
                 }
                 
-                VStack(spacing: 4) {
-                    Text(title)
-                        .font(.system(size: 16, weight: .semibold, design: .default))
-                        .foregroundColor(Color(red: 0.1, green: 0.1, blue: 0.2))
-                    
-                    Text(subtitle)
-                        .font(.system(size: 14, weight: .regular, design: .default))
-                        .foregroundColor(Color(red: 0.5, green: 0.5, blue: 0.6))
-                        .multilineTextAlignment(.center)
-                }
+                Text(title)
+                    .font(.system(size: 16, weight: .semibold, design: .default))
+                    .foregroundColor(Color(red: 0.1, green: 0.1, blue: 0.2))
+                    .multilineTextAlignment(.center)
+                
+                Spacer()
             }
             .frame(width: 120, height: 140)
             .overlay(
