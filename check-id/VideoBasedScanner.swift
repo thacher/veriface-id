@@ -346,39 +346,55 @@ class VideoFrameProcessor: NSObject {
         }
         
         // Check data completeness
-        _ = validateDataCompleteness(licenseData: tempLicenseData, side: side)
+        let dataCompleteness = validateDataCompleteness(licenseData: tempLicenseData, side: side)
         
         // Calculate field progress for specific driver's license fields
         let fieldProgress = calculateFieldProgress(tempLicenseData.extractedFields)
         
-        // Update quality feedback based on field progress
+        // Update quality feedback based on field progress and side
         let qualityFeedback: VideoBasedScanner.QualityFeedback
-        if fieldProgress.isComplete {
-            qualityFeedback = .excellent
-        } else if fieldProgress.progressPercentage >= 75 {
-            qualityFeedback = .good
-        } else if fieldProgress.progressPercentage >= 50 {
-            qualityFeedback = .good
+        if side == .back {
+            // For back side (barcode), be more lenient since barcodes can be more challenging
+            if fieldProgress.isComplete || fieldProgress.progressPercentage >= 80 {
+                qualityFeedback = .excellent
+            } else if fieldProgress.progressPercentage >= 60 {
+                qualityFeedback = .good
+            } else if fieldProgress.progressPercentage >= 40 {
+                qualityFeedback = .good
+            } else {
+                qualityFeedback = .poor
+            }
         } else {
-            qualityFeedback = .poor
+            // For front side (OCR), use standard thresholds
+            if fieldProgress.isComplete {
+                qualityFeedback = .excellent
+            } else if fieldProgress.progressPercentage >= 75 {
+                qualityFeedback = .good
+            } else if fieldProgress.progressPercentage >= 50 {
+                qualityFeedback = .good
+            } else {
+                qualityFeedback = .poor
+            }
         }
         
         DispatchQueue.main.async {
             self.delegate?.frameProcessor(self, didUpdateQuality: qualityFeedback)
         }
         
-        print("🎥 Real-time Field Progress Check:")
+        print("🎥 Real-time Field Progress Check (\(side == .front ? "Front OCR" : "Back Barcode")):")
         print("   Progress: \(String(format: "%.1f", fieldProgress.progressPercentage))%")
         print("   Captured Fields: \(fieldProgress.capturedFields.count)/\(fieldProgress.requiredFields.count)")
         print("   Missing Fields: \(fieldProgress.missingFields)")
         print("   Is Complete: \(fieldProgress.isComplete)")
         print("   Quality Feedback: \(qualityFeedback)")
+        print("   Data Completeness: \(String(format: "%.1f", dataCompleteness.completenessPercentage))%")
         
         // Log individual field statuses
+        print("   Individual Field Status:")
         for field in fieldProgress.requiredFields {
             let status = fieldProgress.fieldStatuses[field] ?? .notFound
             let value = fieldProgress.capturedFields[field] ?? ""
-            print("   \(field): \(status) - '\(value)'")
+            print("     \(field): \(status) - '\(value)'")
         }
     }
     
@@ -437,29 +453,84 @@ class VideoFrameProcessor: NSObject {
     }
     
     private func extractBarcodeFromFrame(_ frame: UIImage) -> (String, Double) {
-        guard let cgImage = frame.cgImage else { return ("", 0.0) }
+        guard let cgImage = frame.cgImage else { 
+            print("❌ Failed to get CGImage for barcode detection")
+            return ("", 0.0) 
+        }
+        
+        print("🔍 Starting barcode extraction...")
         
         let requestHandler = VNImageRequestHandler(cgImage: cgImage, options: [:])
         let request = VNDetectBarcodesRequest { request, error in
             if let error = error {
-                print("Barcode Request Error: \(error)")
+                print("❌ Barcode Request Error: \(error)")
             }
         }
         
-        request.symbologies = [.qr, .code128, .code39, .pdf417, .aztec]
+        // Support all common barcode formats found on driver's licenses
+        request.symbologies = [
+            .pdf417,      // Most common on US driver's licenses
+            .code128,     // Alternative format
+            .code39,      // Alternative format
+            .qr,          // Some modern licenses use QR codes
+            .aztec,       // Some states use Aztec codes
+            .code93,      // Alternative format
+            .ean8,        // Alternative format
+            .ean13,       // Alternative format
+            .upce         // Alternative format
+        ]
         
         do {
             try requestHandler.perform([request])
             
             guard let observations = request.results else {
+                print("❌ Barcode detection failed - No observations")
                 return ("", 0.0)
             }
             
-            let result = observations.first?.payloadStringValue ?? ""
-            let confidence = observations.first?.confidence ?? 0.0
-            return (result, Double(confidence))
+            print("✅ Barcode detection found \(observations.count) barcode observations")
+            
+            // Process all detected barcodes and find the best one
+            var bestBarcode = ""
+            var bestConfidence = 0.0
+            
+            for (index, observation) in observations.enumerated() {
+                let payload = observation.payloadStringValue ?? ""
+                let confidence = Double(observation.confidence)
+                let symbology = observation.symbology
+                
+                print("📋 Barcode \(index + 1):")
+                print("   Type: \(symbology)")
+                print("   Confidence: \(String(format: "%.1f", confidence * 100))%")
+                print("   Payload length: \(payload.count) characters")
+                print("   Payload preview: \(String(payload.prefix(100)))...")
+                
+                // Prefer PDF417 barcodes (most common on driver's licenses)
+                if symbology == .pdf417 && confidence > bestConfidence {
+                    bestBarcode = payload
+                    bestConfidence = confidence
+                } else if payload.count > bestBarcode.count && confidence > 0.5 {
+                    // If no PDF417, prefer longer payloads with good confidence
+                    bestBarcode = payload
+                    bestConfidence = confidence
+                }
+            }
+            
+            if !bestBarcode.isEmpty {
+                print("📝 Best barcode result:")
+                print("   Type: PDF417 (Driver's License)")
+                print("   Confidence: \(String(format: "%.1f", bestConfidence * 100))%")
+                print("   Data length: \(bestBarcode.count) characters")
+                print("   Data preview: \(String(bestBarcode.prefix(200)))...")
+                
+                return (bestBarcode, bestConfidence)
+            } else {
+                print("❌ No suitable barcode found")
+                return ("", 0.0)
+            }
+            
         } catch {
-            print("Barcode Detection Error: \(error)")
+            print("❌ Barcode detection error: \(error)")
         }
         
         return ("", 0.0)
@@ -775,17 +846,18 @@ class VideoFrameProcessor: NSObject {
                 "Weight", "Eye Color"
             ]
         } else {
-            // Required fields for back of license (barcode)
+            // Required fields for back of license (barcode) - focus on key identification fields
             requiredFields = [
-                "First Name", "Last Name", "Date of Birth", "License Number",
-                "Expiration Date", "Sex", "Height", "Eye Color", "State"
+                "Name", "Date of Birth", "Driver License Number", "State",
+                "Class", "Expiration Date", "Issue Date", "Sex", "Height", 
+                "Eye Color", "Address", "City", "ZIP Code"
             ]
         }
         
         let missingFields = requiredFields.filter { !capturedFields.contains($0) }
         let completenessPercentage = Double(requiredFields.count - missingFields.count) / Double(requiredFields.count) * 100
         
-        let isComplete = missingFields.isEmpty
+        let isComplete = missingFields.isEmpty || completenessPercentage >= 85 // Allow 85% completion for barcode
         let validationStatus: ValidationStatus
         
         if completenessPercentage >= 90 {
@@ -797,6 +869,15 @@ class VideoFrameProcessor: NSObject {
         } else {
             validationStatus = .incomplete
         }
+        
+        print("📊 Data Completeness Validation:")
+        print("   Side: \(side == .front ? "Front (OCR)" : "Back (Barcode)")")
+        print("   Required Fields: \(requiredFields.count)")
+        print("   Captured Fields: \(capturedFields.count)")
+        print("   Missing Fields: \(missingFields.count)")
+        print("   Completeness: \(String(format: "%.1f", completenessPercentage))%")
+        print("   Validation Status: \(validationStatus)")
+        print("   Is Complete: \(isComplete)")
         
         return DataCompleteness(
             requiredFields: requiredFields,
@@ -1162,13 +1243,18 @@ class VideoFrameProcessor: NSObject {
     private func parseBarcodeDataComprehensive(_ barcodeData: String) -> [String: String] {
         var fields: [String: String] = [:]
         
+        print("🔍 Parsing barcode data: \(barcodeData)")
+        
         // Handle ANSI format barcode data
         if barcodeData.contains("ANSI") {
+            print("📋 Detected ANSI format barcode")
             let lines = barcodeData.components(separatedBy: "\n")
             for line in lines {
                 if line.count >= 3 {
                     let fieldCode = String(line.prefix(3))
                     let fieldValue = String(line.dropFirst(3))
+                    
+                    print("   Field \(fieldCode): '\(fieldValue)'")
                     
                     switch fieldCode {
                         case "DAC": fields["First Name"] = convertAllCapsToProperCase(fieldValue)
@@ -1204,6 +1290,44 @@ class VideoFrameProcessor: NSObject {
                         case "DCK": fields["City"] = convertAllCapsToProperCase(fieldValue)
                         case "DCL": fields["State"] = convertAllCapsToProperCase(fieldValue)
                         case "DCM": fields["ZIP Code"] = fieldValue
+                        case "DAA": fields["Full Name"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAB": fields["Last Name"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAE": fields["Name Suffix"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAF": fields["Name Prefix"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAH": fields["Residence Address"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAJ": fields["State"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAK": fields["ZIP Code"] = fieldValue
+                        case "DAL": fields["County"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAM": fields["Country"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAN": fields["Telephone"] = fieldValue
+                        case "DAO": fields["Place of Birth"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAP": fields["Audit Information"] = fieldValue
+                        case "DAQ": fields["Temporary Document Indicator"] = fieldValue
+                        case "DAR": fields["Compliance Type"] = fieldValue
+                        case "DAS": fields["Card Revision Date"] = formatDate(fieldValue)
+                        case "DAT": fields["HAZMAT Endorsement Date"] = formatDate(fieldValue)
+                        case "DAV": fields["Weight"] = "\(fieldValue) lbs"
+                        case "DAX": fields["Race/Ethnicity"] = convertAllCapsToProperCase(fieldValue)
+                        case "DBD": fields["Race/Ethnicity"] = convertAllCapsToProperCase(fieldValue)
+                        case "DBE": fields["Audit Information"] = fieldValue
+                        case "DBF": fields["Place of Birth"] = convertAllCapsToProperCase(fieldValue)
+                        case "DBG": fields["Audit Information"] = fieldValue
+                        case "DBH": fields["Organ Donor Indicator"] = fieldValue
+                        case "DBI": fields["Veteran Indicator"] = fieldValue
+                        case "DCB": fields["Document Discriminator"] = fieldValue
+                        case "DCE": fields["Restrictions"] = fieldValue
+                        case "DCN": fields["County"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCO": fields["Country"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCP": fields["Vehicle Class"] = fieldValue
+                        case "DCQ": fields["Restrictions"] = fieldValue
+                        case "DCR": fields["Endorsements"] = fieldValue
+                        case "DCT": fields["First Name"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCU": fields["Middle Name"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCV": fields["Name Suffix"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCW": fields["Name Prefix"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCX": fields["Mailing Address"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCY": fields["Residence Address"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCZ": fields["City"] = convertAllCapsToProperCase(fieldValue)
                         default: 
                             if fieldValue.count > 2 && fieldValue != "NONE" && fieldValue != "UNK" && fieldValue != "N" {
                                 let cleanFieldName = fieldCode.replacingOccurrences(of: "_", with: " ").capitalized
@@ -1214,11 +1338,14 @@ class VideoFrameProcessor: NSObject {
             }
         } else if barcodeData.hasPrefix("^") {
             // AAMVA format
+            print("📋 Detected AAMVA format barcode")
             let components = barcodeData.components(separatedBy: "$")
             for component in components {
                 if component.count >= 3 {
                     let fieldCode = String(component.prefix(3))
                     let fieldValue = String(component.dropFirst(3))
+                    
+                    print("   Field \(fieldCode): '\(fieldValue)'")
                     
                     switch fieldCode {
                         case "DAC": fields["First Name"] = convertAllCapsToProperCase(fieldValue)
@@ -1269,14 +1396,28 @@ class VideoFrameProcessor: NSObject {
                     }
                 }
             }
+        } else {
+            // Try to parse as raw data with common patterns
+            print("📋 Attempting to parse raw barcode data")
+            parseRawBarcodeData(barcodeData, into: &fields)
+            
+            // Also try to parse embedded field codes (like DACROBERT, DADHAMILTON)
+            parseEmbeddedFieldCodes(barcodeData, into: &fields)
         }
         
         // Map barcode fields to required driver's license fields
         var mappedFields: [String: String] = [:]
         
-        // Map name fields
-        if let firstName = fields["First Name"], let lastName = fields["Last Name"] {
-            mappedFields["Name"] = "\(firstName) \(lastName)"
+        // Map name fields - try multiple name field combinations
+        if let fullName = fields["Full Name"] {
+            mappedFields["Name"] = fullName
+        } else if let firstName = fields["First Name"], let lastName = fields["Last Name"] {
+            let middleName = fields["Middle Name"] ?? ""
+            if !middleName.isEmpty {
+                mappedFields["Name"] = "\(firstName) \(middleName) \(lastName)"
+            } else {
+                mappedFields["Name"] = "\(firstName) \(lastName)"
+            }
         } else if let firstName = fields["First Name"] {
             mappedFields["Name"] = firstName
         } else if let lastName = fields["Last Name"] {
@@ -1324,7 +1465,301 @@ class VideoFrameProcessor: NSObject {
             mappedFields["Eye Color"] = eyeColor
         }
         
+        // Add additional fields that might be useful
+        if let address = fields["Address"] ?? fields["Street Address"] ?? fields["Mailing Address"] {
+            mappedFields["Address"] = address
+        }
+        
+        if let city = fields["City"] {
+            mappedFields["City"] = city
+        }
+        
+        if let zipCode = fields["ZIP Code"] {
+            mappedFields["ZIP Code"] = zipCode
+        }
+        
+        if let restrictions = fields["Restrictions"] {
+            mappedFields["Restrictions"] = restrictions
+        }
+        
+        if let endorsements = fields["Endorsements"] {
+            mappedFields["Endorsements"] = endorsements
+        }
+        
+        print("📊 Mapped barcode fields:")
+        for (key, value) in mappedFields {
+            print("   \(key): '\(value)'")
+        }
+        
         return mappedFields
+    }
+    
+    private func parseEmbeddedFieldCodes(_ barcodeData: String, into fields: inout [String: String]) {
+        print("🔍 Parsing embedded field codes in: \(barcodeData)")
+        
+        // Split by common delimiters and look for embedded field codes
+        let possibleDelimiters = ["\n", "\r", " ", "$", "^", "|"]
+        
+        // Try different delimiters
+        for delimiter in possibleDelimiters {
+            let components = barcodeData.components(separatedBy: delimiter)
+            for component in components {
+                let trimmedComponent = component.trimmingCharacters(in: .whitespacesAndNewlines)
+                if trimmedComponent.isEmpty { continue }
+                
+                // Look for embedded field codes (3-letter codes followed by data)
+                if trimmedComponent.count >= 6 {
+                    let fieldCode = String(trimmedComponent.prefix(3))
+                    let fieldValue = String(trimmedComponent.dropFirst(3))
+                    
+                    print("   Found embedded field: \(fieldCode) = '\(fieldValue)'")
+                    
+                    switch fieldCode {
+                        case "DAC": 
+                            if fields["First Name"] == nil {
+                                fields["First Name"] = convertAllCapsToProperCase(fieldValue)
+                            }
+                        case "DAD": 
+                            if fields["Middle Name"] == nil {
+                                fields["Middle Name"] = convertAllCapsToProperCase(fieldValue)
+                            }
+                        case "DCS": 
+                            if fields["Last Name"] == nil {
+                                fields["Last Name"] = convertAllCapsToProperCase(fieldValue)
+                            }
+                        case "DCA": 
+                            if fields["License Number"] == nil {
+                                fields["License Number"] = fieldValue
+                            }
+                        case "DBB": 
+                            if fields["Date of Birth"] == nil {
+                                fields["Date of Birth"] = formatDate(fieldValue)
+                            }
+                        case "DBA": 
+                            if fields["Expiration Date"] == nil {
+                                fields["Expiration Date"] = formatDate(fieldValue)
+                            }
+                        case "DBC": 
+                            if fields["Sex"] == nil {
+                                fields["Sex"] = fieldValue == "1" ? "Male" : "Female"
+                            }
+                        case "DAU": 
+                            if fields["Height"] == nil {
+                                if let inches = Int(fieldValue.replacingOccurrences(of: " in", with: "")) {
+                                    let feet = inches / 12
+                                    let remainingInches = inches % 12
+                                    if remainingInches == 0 {
+                                        fields["Height"] = "\(feet)'"
+                                    } else {
+                                        fields["Height"] = "\(feet)'\(remainingInches)\""
+                                    }
+                                } else {
+                                    fields["Height"] = fieldValue
+                                }
+                            }
+                        case "DAY": 
+                            if fields["Eye Color"] == nil {
+                                fields["Eye Color"] = convertAllCapsToProperCase(fieldValue)
+                            }
+                        case "DAZ": 
+                            if fields["Hair Color"] == nil {
+                                fields["Hair Color"] = convertAllCapsToProperCase(fieldValue)
+                            }
+                        case "DAW": 
+                            if fields["Weight"] == nil {
+                                fields["Weight"] = "\(fieldValue) lbs"
+                            }
+                        case "DAG": 
+                            if fields["Street Address"] == nil {
+                                fields["Street Address"] = convertAllCapsToProperCase(fieldValue)
+                            }
+                        case "DAI": 
+                            if fields["City"] == nil {
+                                fields["City"] = convertAllCapsToProperCase(fieldValue)
+                            }
+                        case "DCD": 
+                            if fields["Class"] == nil {
+                                fields["Class"] = fieldValue
+                            }
+                        case "DCF": 
+                            if fields["Restrictions"] == nil {
+                                fields["Restrictions"] = fieldValue
+                            }
+                        case "DCG": 
+                            if fields["Endorsements"] == nil {
+                                fields["Endorsements"] = fieldValue
+                            }
+                        case "DCH": 
+                            if fields["Issue Date"] == nil {
+                                fields["Issue Date"] = formatDate(fieldValue)
+                            }
+                        case "DCI": 
+                            if fields["State"] == nil {
+                                fields["State"] = fieldValue
+                            }
+                        case "DCJ": 
+                            if fields["Address"] == nil {
+                                fields["Address"] = convertAllCapsToProperCase(fieldValue)
+                            }
+                        case "DCK": 
+                            if fields["City"] == nil {
+                                fields["City"] = convertAllCapsToProperCase(fieldValue)
+                            }
+                        case "DCL": 
+                            if fields["State"] == nil {
+                                fields["State"] = convertAllCapsToProperCase(fieldValue)
+                            }
+                        case "DCM": 
+                            if fields["ZIP Code"] == nil {
+                                fields["ZIP Code"] = fieldValue
+                            }
+                        default:
+                            // If it's a 3-letter code but not recognized, still try to extract it
+                            if fieldValue.count > 2 && fieldValue != "NONE" && fieldValue != "UNK" && fieldValue != "N" {
+                                let cleanFieldName = fieldCode.replacingOccurrences(of: "_", with: " ").capitalized
+                                if fields[cleanFieldName] == nil {
+                                    fields[cleanFieldName] = convertAllCapsToProperCase(fieldValue)
+                                }
+                            }
+                    }
+                }
+            }
+        }
+        
+        // Also try to find field codes in the entire string without delimiters
+        let fieldCodePatterns = [
+            ("DAC", "First Name"),
+            ("DAD", "Middle Name"), 
+            ("DCS", "Last Name"),
+            ("DCA", "License Number"),
+            ("DBB", "Date of Birth"),
+            ("DBA", "Expiration Date"),
+            ("DBC", "Sex"),
+            ("DAU", "Height"),
+            ("DAY", "Eye Color"),
+            ("DAZ", "Hair Color"),
+            ("DAW", "Weight"),
+            ("DAG", "Street Address"),
+            ("DAI", "City"),
+            ("DCD", "Class"),
+            ("DCF", "Restrictions"),
+            ("DCG", "Endorsements"),
+            ("DCH", "Issue Date"),
+            ("DCI", "State"),
+            ("DCJ", "Address"),
+            ("DCK", "City"),
+            ("DCL", "State"),
+            ("DCM", "ZIP Code")
+        ]
+        
+        for (fieldCode, fieldName) in fieldCodePatterns {
+            if fields[fieldName] == nil {
+                let pattern = "\(fieldCode)([A-Z0-9]+)"
+                if let match = barcodeData.range(of: pattern, options: .regularExpression) {
+                    let fieldValue = String(barcodeData[match].dropFirst(3))
+                    print("   Found pattern match: \(fieldCode) = '\(fieldValue)'")
+                    
+                    switch fieldCode {
+                        case "DAC": fields["First Name"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAD": fields["Middle Name"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCS": fields["Last Name"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCA": fields["License Number"] = fieldValue
+                        case "DBB": fields["Date of Birth"] = formatDate(fieldValue)
+                        case "DBA": fields["Expiration Date"] = formatDate(fieldValue)
+                        case "DBC": fields["Sex"] = fieldValue == "1" ? "Male" : "Female"
+                        case "DAU": 
+                            if let inches = Int(fieldValue.replacingOccurrences(of: " in", with: "")) {
+                                let feet = inches / 12
+                                let remainingInches = inches % 12
+                                if remainingInches == 0 {
+                                    fields["Height"] = "\(feet)'"
+                                } else {
+                                    fields["Height"] = "\(feet)'\(remainingInches)\""
+                                }
+                            } else {
+                                fields["Height"] = fieldValue
+                            }
+                        case "DAY": fields["Eye Color"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAZ": fields["Hair Color"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAW": fields["Weight"] = "\(fieldValue) lbs"
+                        case "DAG": fields["Street Address"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAI": fields["City"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCD": fields["Class"] = fieldValue
+                        case "DCF": fields["Restrictions"] = fieldValue
+                        case "DCG": fields["Endorsements"] = fieldValue
+                        case "DCH": fields["Issue Date"] = formatDate(fieldValue)
+                        case "DCI": fields["State"] = fieldValue
+                        case "DCJ": fields["Address"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCK": fields["City"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCL": fields["State"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCM": fields["ZIP Code"] = fieldValue
+                        default: break
+                    }
+                }
+            }
+        }
+    }
+    
+    private func parseRawBarcodeData(_ barcodeData: String, into fields: inout [String: String]) {
+        // Try to extract common patterns from raw barcode data
+        let lines = barcodeData.components(separatedBy: .newlines)
+        
+        for line in lines {
+            let trimmedLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmedLine.isEmpty { continue }
+            
+            // Try to match common field patterns
+            if let nameMatch = trimmedLine.range(of: #"([A-Z]+\s+[A-Z]+\s+[A-Z]+)"#, options: .regularExpression) {
+                fields["Name"] = convertAllCapsToProperCase(String(trimmedLine[nameMatch]))
+            }
+            
+            if let dobMatch = trimmedLine.range(of: #"(\d{1,2}/\d{1,2}/\d{4})"#, options: .regularExpression) {
+                fields["Date of Birth"] = String(trimmedLine[dobMatch])
+            }
+            
+            if let licenseMatch = trimmedLine.range(of: #"([A-Z]\d{6,})"#, options: .regularExpression) {
+                fields["License Number"] = String(trimmedLine[licenseMatch])
+            }
+            
+            if let stateMatch = trimmedLine.range(of: #"^([A-Z]{2})"#, options: .regularExpression) {
+                fields["State"] = String(trimmedLine[stateMatch])
+            }
+            
+            if let classMatch = trimmedLine.range(of: #"CLASS\s+([A-Z])"#, options: .regularExpression) {
+                let classRange = trimmedLine[classMatch].range(of: #"[A-Z]"#, options: .regularExpression)!
+                fields["Class"] = String(trimmedLine[classRange])
+            }
+            
+            if let expMatch = trimmedLine.range(of: #"EXP\s+(\d{1,2}/\d{1,2}/\d{4})"#, options: .regularExpression) {
+                let expRange = trimmedLine[expMatch].range(of: #"\d{1,2}/\d{1,2}/\d{4}"#, options: .regularExpression)!
+                fields["Expiration Date"] = String(trimmedLine[expRange])
+            }
+            
+            if let issMatch = trimmedLine.range(of: #"ISS\s+(\d{1,2}/\d{1,2}/\d{4})"#, options: .regularExpression) {
+                let issRange = trimmedLine[issMatch].range(of: #"\d{1,2}/\d{1,2}/\d{4}"#, options: .regularExpression)!
+                fields["Issue Date"] = String(trimmedLine[issRange])
+            }
+            
+            if let sexMatch = trimmedLine.range(of: #"([MF])\d"#, options: .regularExpression) {
+                let sexRange = trimmedLine[sexMatch].range(of: #"[MF]"#, options: .regularExpression)!
+                fields["Sex"] = trimmedLine[sexRange] == "M" ? "Male" : "Female"
+            }
+            
+            if let heightMatch = trimmedLine.range(of: #"(\d{1,2})['\"]\s*[-]?\s*(\d{1,2})[\"]"#, options: .regularExpression) {
+                let heightText = String(trimmedLine[heightMatch])
+                fields["Height"] = formatHeight(heightText)
+            }
+            
+            if let weightMatch = trimmedLine.range(of: #"(\d{3})lb"#, options: .regularExpression) {
+                let weightRange = trimmedLine[weightMatch].range(of: #"\d{3}"#, options: .regularExpression)!
+                fields["Weight"] = "\(String(trimmedLine[weightRange])) lb"
+            }
+            
+            if let eyeMatch = trimmedLine.range(of: #"\b(BLU|BLUE|BRN|BROWN|GRN|GREEN|GRY|GRAY|HAZ|HAZEL|BLK|BLACK|AMB|AMBER|MUL|MULTI|PINK|PUR|PURPLE|YEL|YELLOW|WHI|WHITE|MAR|MARBLE|CHR|CHROME|GOL|GOLD|SIL|SILVER|COPPER|BURGUNDY|VIOLET|INDIGO|TEAL|TURQUOISE|AQUA|CYAN|LIME|OLIVE|NAVY|ROYAL|SKY|LIGHT|DARK|MED|MEDIUM)\b"#, options: .regularExpression) {
+                let eyeColor = String(trimmedLine[eyeMatch])
+                fields["Eye Color"] = convertAllCapsToProperCase(eyeColor)
+            }
+        }
     }
     
     private func convertAllCapsToProperCase(_ text: String) -> String {
@@ -1410,12 +1845,42 @@ class VideoFrameProcessor: NSObject {
         var missingFields: [String] = []
         var fieldStatuses: [String: FieldStatus] = [:]
         
-        let requiredFields = ["Name", "Date of Birth", "Driver License Number", "State", "Class", "Expiration Date", "Issue Date", "Sex", "Height", "Weight", "Eye Color"]
+        // Determine if this is front or back side based on the fields present
+        let hasBarcodeFields = extractedFields.keys.contains { key in
+            ["License Number", "First Name", "Last Name", "Full Name"].contains(key)
+        }
+        
+        let requiredFields: [String]
+        if hasBarcodeFields {
+            // Back side (barcode) - focus on key identification fields
+            requiredFields = [
+                "Name", "Date of Birth", "Driver License Number", "State", 
+                "Class", "Expiration Date", "Issue Date", "Sex", "Height", 
+                "Eye Color", "Address", "City", "ZIP Code"
+            ]
+        } else {
+            // Front side (OCR) - all standard fields
+            requiredFields = [
+                "Name", "Date of Birth", "Driver License Number", "State", 
+                "Class", "Expiration Date", "Issue Date", "Sex", "Height", 
+                "Weight", "Eye Color"
+            ]
+        }
         
         for field in requiredFields {
-            if let value = extractedFields[field] {
+            if let value = extractedFields[field], !value.isEmpty {
                 capturedFields[field] = value
-                fieldStatuses[field] = .complete
+                
+                // Determine field status based on completeness
+                if value.count > 10 {
+                    fieldStatuses[field] = .excellent
+                } else if value.count > 5 {
+                    fieldStatuses[field] = .complete
+                } else if value.count > 2 {
+                    fieldStatuses[field] = .partial
+                } else {
+                    fieldStatuses[field] = .notFound
+                }
             } else {
                 capturedFields[field] = ""
                 missingFields.append(field)
@@ -1424,7 +1889,15 @@ class VideoFrameProcessor: NSObject {
         }
         
         let progressPercentage = Double(requiredFields.count - missingFields.count) / Double(requiredFields.count) * 100
-        let isComplete = missingFields.isEmpty
+        let isComplete = missingFields.isEmpty || progressPercentage >= 85 // Allow 85% completion
+        
+        print("📊 Field Progress Analysis:")
+        print("   Side: \(hasBarcodeFields ? "Back (Barcode)" : "Front (OCR)")")
+        print("   Required Fields: \(requiredFields.count)")
+        print("   Captured Fields: \(capturedFields.count - missingFields.count)")
+        print("   Missing Fields: \(missingFields.count)")
+        print("   Progress: \(String(format: "%.1f", progressPercentage))%")
+        print("   Is Complete: \(isComplete)")
         
         return FieldProgress(
             requiredFields: requiredFields,
