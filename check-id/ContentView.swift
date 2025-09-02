@@ -283,6 +283,12 @@ struct ContentView: View {
             print("🚨 Barcode Success: \(barcodeData)")
             data.barcodeData = barcodeData
             data.barcodeType = "PDF417 (Driver's License)"
+            
+            // Parse the barcode data using enhanced parsing
+            let extractedFields = parseBarcodeDataComprehensive(barcodeData)
+            data.extractedFields = extractedFields
+            
+            print("🚨 Parsed barcode fields: \(extractedFields)")
         } else {
             print("🚨 Barcode FAILED - No data extracted")
         }
@@ -3983,6 +3989,871 @@ struct AdvancedVerificationSection: View {
 
 
 
+
+// MARK: - Enhanced Barcode Parsing
+
+extension ContentView {
+    private func parseBarcodeDataComprehensive(_ barcodeData: String) -> [String: String] {
+        var fields: [String: String] = [:]
+        
+        print("🔍 Parsing barcode data: \(barcodeData)")
+        
+        // Handle ANSI format barcode data
+        if barcodeData.contains("ANSI") {
+            print("📋 Detected ANSI format barcode")
+            let lines = barcodeData.components(separatedBy: "\n")
+            for line in lines {
+                if line.count >= 3 {
+                    let fieldCode = String(line.prefix(3))
+                    let fieldValue = String(line.dropFirst(3))
+                    
+                    print("   Field \(fieldCode): '\(fieldValue)'")
+                    
+                    switch fieldCode {
+                        case "DAC": fields["First Name"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAD": fields["Middle Name"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCS": fields["Last Name"] = convertAllCapsToProperCase(fieldValue)
+                        case "DBB": fields["Date of Birth"] = formatDate(fieldValue)
+                        case "DBA": fields["Expiration Date"] = formatDate(fieldValue)
+                        case "DBC": fields["Sex"] = fieldValue == "1" ? "Male" : "Female"
+                        case "DAU": 
+                            if let inches = Int(fieldValue.replacingOccurrences(of: " in", with: "")) {
+                                let feet = inches / 12
+                                let remainingInches = inches % 12
+                                if remainingInches == 0 {
+                                    fields["Height"] = "\(feet)'"
+                                } else {
+                                    fields["Height"] = "\(feet)'\(remainingInches)\""
+                                }
+                            } else {
+                                fields["Height"] = fieldValue
+                            }
+                        case "DAY": fields["Eye Color"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAZ": fields["Hair Color"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAW": fields["Weight"] = "\(fieldValue) lbs"
+                        case "DAG": fields["Street Address"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAI": fields["City"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCA": fields["License Number"] = fieldValue
+                        case "DCD": fields["Class"] = fieldValue
+                        case "DCF": fields["Restrictions"] = fieldValue
+                        case "DCG": fields["Endorsements"] = fieldValue
+                        case "DCH": fields["Issue Date"] = formatDate(fieldValue)
+                        case "DCI": fields["State"] = fieldValue
+                        case "DCJ": fields["Address"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCK": fields["City"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCL": fields["State"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCM": fields["ZIP Code"] = fieldValue
+                        case "DAA": fields["Full Name"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAB": fields["Last Name"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAE": fields["Name Suffix"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAF": fields["Name Prefix"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAH": fields["Residence Address"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAJ": fields["State"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAK": fields["ZIP Code"] = fieldValue
+                        case "DAL": fields["County"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAM": fields["Country"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAN": fields["Telephone"] = fieldValue
+                        case "DAO": fields["Place of Birth"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAP": fields["Audit Information"] = fieldValue
+                        case "DAQ": fields["Temporary Document Indicator"] = fieldValue
+                        case "DAR": fields["Compliance Type"] = fieldValue
+                        case "DAS": fields["Card Revision Date"] = formatDate(fieldValue)
+                        case "DAT": fields["HAZMAT Endorsement Date"] = formatDate(fieldValue)
+                        case "DAV": fields["Weight"] = "\(fieldValue) lbs"
+                        case "DAX": fields["Race/Ethnicity"] = convertAllCapsToProperCase(fieldValue)
+                        case "DBD": fields["Race/Ethnicity"] = convertAllCapsToProperCase(fieldValue)
+                        case "DBE": fields["Audit Information"] = fieldValue
+                        case "DBF": fields["Place of Birth"] = convertAllCapsToProperCase(fieldValue)
+                        case "DBG": fields["Audit Information"] = fieldValue
+                        case "DBH": fields["Organ Donor Indicator"] = fieldValue
+                        case "DBI": fields["Veteran Indicator"] = fieldValue
+                        case "DCB": fields["Document Discriminator"] = fieldValue
+                        case "DCE": fields["Restrictions"] = fieldValue
+                        case "DCN": fields["County"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCO": fields["Country"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCP": fields["Vehicle Class"] = fieldValue
+                        case "DCQ": fields["Restrictions"] = fieldValue
+                        case "DCR": fields["Endorsements"] = fieldValue
+                        case "DCT": fields["First Name"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCU": fields["Middle Name"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCV": fields["Name Suffix"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCW": fields["Name Prefix"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCX": fields["Mailing Address"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCY": fields["Residence Address"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCZ": fields["City"] = convertAllCapsToProperCase(fieldValue)
+                        default: 
+                            if fieldValue.count > 2 && fieldValue != "NONE" && fieldValue != "UNK" && fieldValue != "N" {
+                                let cleanFieldName = fieldCode.replacingOccurrences(of: "_", with: " ").capitalized
+                                fields[cleanFieldName] = fieldValue
+                            }
+                    }
+                }
+            }
+        } else if barcodeData.hasPrefix("^") {
+            // AAMVA format
+            print("📋 Detected AAMVA format barcode")
+            let components = barcodeData.components(separatedBy: "$")
+            for component in components {
+                if component.count >= 3 {
+                    let fieldCode = String(component.prefix(3))
+                    let fieldValue = String(component.dropFirst(3))
+                    
+                    print("   Field \(fieldCode): '\(fieldValue)'")
+                    
+                    switch fieldCode {
+                        case "DAC": fields["First Name"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCS": fields["Last Name"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAD": fields["Middle Name"] = convertAllCapsToProperCase(fieldValue)
+                        case "DBB": fields["Date of Birth"] = formatDate(fieldValue)
+                        case "DBA": fields["Expiration Date"] = formatDate(fieldValue)
+                        case "DBC": fields["Sex"] = fieldValue == "1" ? "Male" : "Female"
+                        case "DAU": 
+                            if let inches = Int(fieldValue.replacingOccurrences(of: " in", with: "")) {
+                                let feet = inches / 12
+                                let remainingInches = inches % 12
+                                if remainingInches == 0 {
+                                    fields["Height"] = "\(feet)'"
+                                } else {
+                                    fields["Height"] = "\(feet)'\(remainingInches)\""
+                                }
+                            } else {
+                                fields["Height"] = fieldValue
+                            }
+                        case "DAY": fields["Eye Color"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAZ": fields["Hair Color"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCA": 
+                            if fieldValue.count >= 7 {
+                                let cleanLicense = String(fieldValue.suffix(7))
+                                fields["License Number"] = cleanLicense
+                            } else {
+                                fields["License Number"] = fieldValue
+                            }
+                        case "DCD": fields["Class"] = fieldValue
+                        case "DCF": fields["Restrictions"] = fieldValue
+                        case "DCG": fields["Endorsements"] = fieldValue
+                        case "DCH": fields["Issue Date"] = formatDate(fieldValue)
+                        case "DCI": fields["State"] = fieldValue
+                        case "DCJ": fields["Address"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCK": fields["City"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCL": fields["State"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCM": fields["ZIP Code"] = fieldValue
+                        case "DAG": fields["Street Address"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAI": fields["City"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAJ": fields["State"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAK": fields["ZIP Code"] = fieldValue
+                        default: 
+                            if fieldValue.count > 2 && fieldValue != "NONE" && fieldValue != "UNK" {
+                                let cleanFieldName = fieldCode.replacingOccurrences(of: "_", with: " ").capitalized
+                                fields[cleanFieldName] = fieldValue
+                            }
+                    }
+                }
+            }
+        } else {
+            // Try to parse as raw data with common patterns
+            print("📋 Attempting to parse raw barcode data")
+            parseRawBarcodeData(barcodeData, into: &fields)
+            
+            // Also try to parse embedded field codes (like DACROBERT, DADHAMILTON)
+            parseEmbeddedFieldCodes(barcodeData, into: &fields)
+            
+            // Enhanced parsing for the specific format you provided
+            parseEnhancedBarcodeFormat(barcodeData, into: &fields)
+        }
+        
+        // Map barcode fields to required driver's license fields
+        var mappedFields: [String: String] = [:]
+        
+        // Map name fields - try multiple name field combinations
+        if let fullName = fields["Full Name"] {
+            mappedFields["Name"] = fullName
+        } else if let firstName = fields["First Name"], let lastName = fields["Last Name"] {
+            let middleName = fields["Middle Name"] ?? ""
+            if !middleName.isEmpty {
+                mappedFields["Name"] = "\(firstName) \(middleName) \(lastName)"
+            } else {
+                mappedFields["Name"] = "\(firstName) \(lastName)"
+            }
+        } else if let firstName = fields["First Name"] {
+            mappedFields["Name"] = firstName
+        } else if let lastName = fields["Last Name"] {
+            mappedFields["Name"] = lastName
+        }
+        
+        // Map other fields directly
+        if let dob = fields["Date of Birth"] {
+            mappedFields["Date of Birth"] = dob
+        }
+        
+        if let licenseNumber = fields["License Number"] {
+            mappedFields["Driver License Number"] = licenseNumber
+        }
+        
+        if let state = fields["State"] {
+            mappedFields["State"] = state
+        }
+        
+        if let licenseClass = fields["Class"] {
+            mappedFields["Class"] = licenseClass
+        }
+        
+        if let expiration = fields["Expiration Date"] {
+            mappedFields["Expiration Date"] = expiration
+        }
+        
+        if let issue = fields["Issue Date"] {
+            mappedFields["Issue Date"] = issue
+        }
+        
+        if let sex = fields["Sex"] {
+            mappedFields["Sex"] = sex
+        }
+        
+        if let height = fields["Height"] {
+            mappedFields["Height"] = height
+        }
+        
+        if let weight = fields["Weight"] {
+            mappedFields["Weight"] = weight
+        }
+        
+        if let eyeColor = fields["Eye Color"] {
+            mappedFields["Eye Color"] = eyeColor
+        }
+        
+        // Add additional fields that might be useful
+        if let address = fields["Address"] ?? fields["Street Address"] ?? fields["Mailing Address"] ?? fields["Residence Address"] {
+            mappedFields["Address"] = address
+        }
+        
+        if let city = fields["City"] {
+            mappedFields["City"] = city
+        }
+        
+        if let zipCode = fields["ZIP Code"] {
+            mappedFields["ZIP Code"] = zipCode
+        }
+        
+        if let restrictions = fields["Restrictions"] {
+            mappedFields["Restrictions"] = restrictions
+        }
+        
+        if let endorsements = fields["Endorsements"] {
+            mappedFields["Endorsements"] = endorsements
+        }
+        
+        // Add all other fields from the barcode data
+        for (key, value) in fields {
+            if !mappedFields.keys.contains(key) && value.count > 0 && value != "NONE" && value != "UNK" && value != "N" {
+                mappedFields[key] = value
+            }
+        }
+        
+        print("📊 Mapped barcode fields:")
+        for (key, value) in mappedFields {
+            print("   \(key): '\(value)'")
+        }
+        
+        return mappedFields
+    }
+    
+    private func parseEnhancedBarcodeFormat(_ barcodeData: String, into fields: inout [String: String]) {
+        print("🔍 Enhanced barcode parsing for format: \(barcodeData)")
+        
+        // Split by newlines and process each line
+        let lines = barcodeData.components(separatedBy: .newlines)
+        
+        for line in lines {
+            let trimmedLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmedLine.isEmpty { continue }
+            
+            // Look for 3-letter field codes followed by data
+            if trimmedLine.count >= 3 {
+                let fieldCode = String(trimmedLine.prefix(3))
+                let fieldValue = String(trimmedLine.dropFirst(3))
+                
+                print("   Enhanced parsing - Field \(fieldCode): '\(fieldValue)'")
+                
+                switch fieldCode {
+                    case "DAC": 
+                        if fields["First Name"] == nil {
+                            fields["First Name"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DAD": 
+                        if fields["Middle Name"] == nil {
+                            fields["Middle Name"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DCS": 
+                        if fields["Last Name"] == nil {
+                            fields["Last Name"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DCU": 
+                        if fields["Middle Name"] == nil {
+                            fields["Middle Name"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DCA": 
+                        if fields["License Number"] == nil {
+                            fields["License Number"] = fieldValue
+                        }
+                    case "DBB": 
+                        if fields["Date of Birth"] == nil {
+                            fields["Date of Birth"] = formatDate(fieldValue)
+                        }
+                    case "DBA": 
+                        if fields["Expiration Date"] == nil {
+                            fields["Expiration Date"] = formatDate(fieldValue)
+                        }
+                    case "DBD": 
+                        if fields["Issue Date"] == nil {
+                            fields["Issue Date"] = formatDate(fieldValue)
+                        }
+                    case "DBC": 
+                        if fields["Sex"] == nil {
+                            fields["Sex"] = fieldValue == "1" ? "Male" : "Female"
+                        }
+                    case "DAU": 
+                        if fields["Height"] == nil {
+                            if let inches = Int(fieldValue.replacingOccurrences(of: " in", with: "")) {
+                                let feet = inches / 12
+                                let remainingInches = inches % 12
+                                if remainingInches == 0 {
+                                    fields["Height"] = "\(feet)'"
+                                } else {
+                                    fields["Height"] = "\(feet)'\(remainingInches)\""
+                                }
+                            } else {
+                                fields["Height"] = fieldValue
+                            }
+                        }
+                    case "DAY": 
+                        if fields["Eye Color"] == nil {
+                            fields["Eye Color"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DAZ": 
+                        if fields["Hair Color"] == nil {
+                            fields["Hair Color"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DAW": 
+                        if fields["Weight"] == nil {
+                            fields["Weight"] = "\(fieldValue) lbs"
+                        }
+                    case "DAG": 
+                        if fields["Street Address"] == nil {
+                            fields["Street Address"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DAI": 
+                        if fields["City"] == nil {
+                            fields["City"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DAJ": 
+                        if fields["State"] == nil {
+                            fields["State"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DAK": 
+                        if fields["ZIP Code"] == nil {
+                            fields["ZIP Code"] = fieldValue
+                        }
+                    case "DCD": 
+                        if fields["Class"] == nil {
+                            fields["Class"] = fieldValue
+                        }
+                    case "DCF": 
+                        if fields["Restrictions"] == nil {
+                            fields["Restrictions"] = fieldValue
+                        }
+                    case "DCG": 
+                        if fields["Endorsements"] == nil {
+                            fields["Endorsements"] = fieldValue
+                        }
+                    case "DCH": 
+                        if fields["Issue Date"] == nil {
+                            fields["Issue Date"] = formatDate(fieldValue)
+                        }
+                    case "DCI": 
+                        if fields["State"] == nil {
+                            fields["State"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DCJ": 
+                        if fields["Address"] == nil {
+                            fields["Address"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DCK": 
+                        if fields["City"] == nil {
+                            fields["City"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DCL": 
+                        if fields["State"] == nil {
+                            fields["State"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DCM": 
+                        if fields["ZIP Code"] == nil {
+                            fields["ZIP Code"] = fieldValue
+                        }
+                    case "DAA": 
+                        if fields["Full Name"] == nil {
+                            fields["Full Name"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DAB": 
+                        if fields["Last Name"] == nil {
+                            fields["Last Name"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DAE": 
+                        if fields["Name Suffix"] == nil {
+                            fields["Name Suffix"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DAF": 
+                        if fields["Name Prefix"] == nil {
+                            fields["Name Prefix"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DAH": 
+                        if fields["Residence Address"] == nil {
+                            fields["Residence Address"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DAL": 
+                        if fields["County"] == nil {
+                            fields["County"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DAM": 
+                        if fields["Country"] == nil {
+                            fields["Country"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DAN": 
+                        if fields["Telephone"] == nil {
+                            fields["Telephone"] = fieldValue
+                        }
+                    case "DAO": 
+                        if fields["Place of Birth"] == nil {
+                            fields["Place of Birth"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DAP": 
+                        if fields["Audit Information"] == nil {
+                            fields["Audit Information"] = fieldValue
+                        }
+                    case "DAQ": 
+                        if fields["Temporary Document Indicator"] == nil {
+                            fields["Temporary Document Indicator"] = fieldValue
+                        }
+                    case "DAR": 
+                        if fields["Compliance Type"] == nil {
+                            fields["Compliance Type"] = fieldValue
+                        }
+                    case "DAS": 
+                        if fields["Card Revision Date"] == nil {
+                            fields["Card Revision Date"] = formatDate(fieldValue)
+                        }
+                    case "DAT": 
+                        if fields["HAZMAT Endorsement Date"] == nil {
+                            fields["HAZMAT Endorsement Date"] = formatDate(fieldValue)
+                        }
+                    case "DAV": 
+                        if fields["Weight"] == nil {
+                            fields["Weight"] = "\(fieldValue) lbs"
+                        }
+                    case "DAX": 
+                        if fields["Race/Ethnicity"] == nil {
+                            fields["Race/Ethnicity"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DBE": 
+                        if fields["Audit Information"] == nil {
+                            fields["Audit Information"] = fieldValue
+                        }
+                    case "DBF": 
+                        if fields["Place of Birth"] == nil {
+                            fields["Place of Birth"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DBG": 
+                        if fields["Audit Information"] == nil {
+                            fields["Audit Information"] = fieldValue
+                        }
+                    case "DBH": 
+                        if fields["Organ Donor Indicator"] == nil {
+                            fields["Organ Donor Indicator"] = fieldValue
+                        }
+                    case "DBI": 
+                        if fields["Veteran Indicator"] == nil {
+                            fields["Veteran Indicator"] = fieldValue
+                        }
+                    case "DCB": 
+                        if fields["Document Discriminator"] == nil {
+                            fields["Document Discriminator"] = fieldValue
+                        }
+                    case "DCE": 
+                        if fields["Restrictions"] == nil {
+                            fields["Restrictions"] = fieldValue
+                        }
+                    case "DCN": 
+                        if fields["County"] == nil {
+                            fields["County"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DCO": 
+                        if fields["Country"] == nil {
+                            fields["Country"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DCP": 
+                        if fields["Vehicle Class"] == nil {
+                            fields["Vehicle Class"] = fieldValue
+                        }
+                    case "DCQ": 
+                        if fields["Restrictions"] == nil {
+                            fields["Restrictions"] = fieldValue
+                        }
+                    case "DCR": 
+                        if fields["Endorsements"] == nil {
+                            fields["Endorsements"] = fieldValue
+                        }
+                    case "DCT": 
+                        if fields["First Name"] == nil {
+                            fields["First Name"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DCV": 
+                        if fields["Name Suffix"] == nil {
+                            fields["Name Suffix"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DCW": 
+                        if fields["Name Prefix"] == nil {
+                            fields["Name Prefix"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DCX": 
+                        if fields["Mailing Address"] == nil {
+                            fields["Mailing Address"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DCY": 
+                        if fields["Residence Address"] == nil {
+                            fields["Residence Address"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DCZ": 
+                        if fields["City"] == nil {
+                            fields["City"] = convertAllCapsToProperCase(fieldValue)
+                        }
+                    case "DDA": 
+                        if fields["Audit Information"] == nil {
+                            fields["Audit Information"] = fieldValue
+                        }
+                    case "DDB": 
+                        if fields["Audit Information"] == nil {
+                            fields["Audit Information"] = fieldValue
+                        }
+                    case "DDC": 
+                        if fields["Audit Information"] == nil {
+                            fields["Audit Information"] = fieldValue
+                        }
+                    case "DDD": 
+                        if fields["Audit Information"] == nil {
+                            fields["Audit Information"] = fieldValue
+                        }
+                    case "DDE": 
+                        if fields["Audit Information"] == nil {
+                            fields["Audit Information"] = fieldValue
+                        }
+                    case "DDF": 
+                        if fields["Audit Information"] == nil {
+                            fields["Audit Information"] = fieldValue
+                        }
+                    case "DDG": 
+                        if fields["Audit Information"] == nil {
+                            fields["Audit Information"] = fieldValue
+                        }
+                    case "DDH": 
+                        if fields["Audit Information"] == nil {
+                            fields["Audit Information"] = fieldValue
+                        }
+                    case "DDI": 
+                        if fields["Audit Information"] == nil {
+                            fields["Audit Information"] = fieldValue
+                        }
+                    case "DDJ": 
+                        if fields["Audit Information"] == nil {
+                            fields["Audit Information"] = fieldValue
+                        }
+                    case "DDK": 
+                        if fields["Audit Information"] == nil {
+                            fields["Audit Information"] = fieldValue
+                        }
+                    case "DDL": 
+                        if fields["Audit Information"] == nil {
+                            fields["Audit Information"] = fieldValue
+                        }
+                    default:
+                        // If it's a 3-letter code but not recognized, still try to extract it
+                        if fieldValue.count > 2 && fieldValue != "NONE" && fieldValue != "UNK" && fieldValue != "N" {
+                            let cleanFieldName = fieldCode.replacingOccurrences(of: "_", with: " ").capitalized
+                            if fields[cleanFieldName] == nil {
+                                fields[cleanFieldName] = convertAllCapsToProperCase(fieldValue)
+                            }
+                        }
+                }
+            }
+        }
+    }
+    
+    private func parseEmbeddedFieldCodes(_ barcodeData: String, into fields: inout [String: String]) {
+        print("🔍 Parsing embedded field codes in: \(barcodeData)")
+        
+        // Split by common delimiters and look for embedded field codes
+        let possibleDelimiters = ["\n", "\r", " ", "$", "^", "|"]
+        
+        // Try different delimiters
+        for delimiter in possibleDelimiters {
+            let components = barcodeData.components(separatedBy: delimiter)
+            for component in components {
+                let trimmedComponent = component.trimmingCharacters(in: .whitespacesAndNewlines)
+                if trimmedComponent.isEmpty { continue }
+                
+                // Look for embedded field codes (3-letter codes followed by data)
+                if trimmedComponent.count >= 6 {
+                    let fieldCode = String(trimmedComponent.prefix(3))
+                    let fieldValue = String(trimmedComponent.dropFirst(3))
+                    
+                    print("   Found embedded field: \(fieldCode) = '\(fieldValue)'")
+                    
+                    switch fieldCode {
+                        case "DAC": 
+                            if fields["First Name"] == nil {
+                                fields["First Name"] = convertAllCapsToProperCase(fieldValue)
+                            }
+                        case "DAD": 
+                            if fields["Middle Name"] == nil {
+                                fields["Middle Name"] = convertAllCapsToProperCase(fieldValue)
+                            }
+                        case "DCS": 
+                            if fields["Last Name"] == nil {
+                                fields["Last Name"] = convertAllCapsToProperCase(fieldValue)
+                            }
+                        case "DCA": 
+                            if fields["License Number"] == nil {
+                                fields["License Number"] = fieldValue
+                            }
+                        case "DBB": 
+                            if fields["Date of Birth"] == nil {
+                                fields["Date of Birth"] = formatDate(fieldValue)
+                            }
+                        case "DBA": 
+                            if fields["Expiration Date"] == nil {
+                                fields["Expiration Date"] = formatDate(fieldValue)
+                            }
+                        case "DBC": 
+                            if fields["Sex"] == nil {
+                                fields["Sex"] = fieldValue == "1" ? "Male" : "Female"
+                            }
+                        case "DAU": 
+                            if fields["Height"] == nil {
+                                if let inches = Int(fieldValue.replacingOccurrences(of: " in", with: "")) {
+                                    let feet = inches / 12
+                                    let remainingInches = inches % 12
+                                    if remainingInches == 0 {
+                                        fields["Height"] = "\(feet)'"
+                                    } else {
+                                        fields["Height"] = "\(feet)'\(remainingInches)\""
+                                    }
+                                } else {
+                                    fields["Height"] = fieldValue
+                                }
+                            }
+                        case "DAY": 
+                            if fields["Eye Color"] == nil {
+                                fields["Eye Color"] = convertAllCapsToProperCase(fieldValue)
+                            }
+                        case "DAZ": 
+                            if fields["Hair Color"] == nil {
+                                fields["Hair Color"] = convertAllCapsToProperCase(fieldValue)
+                            }
+                        case "DAW": 
+                            if fields["Weight"] == nil {
+                                fields["Weight"] = "\(fieldValue) lbs"
+                            }
+                        case "DAG": 
+                            if fields["Street Address"] == nil {
+                                fields["Street Address"] = convertAllCapsToProperCase(fieldValue)
+                            }
+                        case "DAI": 
+                            if fields["City"] == nil {
+                                fields["City"] = convertAllCapsToProperCase(fieldValue)
+                            }
+                        case "DCD": 
+                            if fields["Class"] == nil {
+                                fields["Class"] = fieldValue
+                            }
+                        case "DCF": 
+                            if fields["Restrictions"] == nil {
+                                fields["Restrictions"] = fieldValue
+                            }
+                        case "DCG": 
+                            if fields["Endorsements"] == nil {
+                                fields["Endorsements"] = fieldValue
+                            }
+                        case "DCH": 
+                            if fields["Issue Date"] == nil {
+                                fields["Issue Date"] = formatDate(fieldValue)
+                            }
+                        case "DCI": 
+                            if fields["State"] == nil {
+                                fields["State"] = fieldValue
+                            }
+                        case "DCJ": 
+                            if fields["Address"] == nil {
+                                fields["Address"] = convertAllCapsToProperCase(fieldValue)
+                            }
+                        case "DCK": 
+                            if fields["City"] == nil {
+                                fields["City"] = convertAllCapsToProperCase(fieldValue)
+                            }
+                        case "DCL": 
+                            if fields["State"] == nil {
+                                fields["State"] = convertAllCapsToProperCase(fieldValue)
+                            }
+                        case "DCM": 
+                            if fields["ZIP Code"] == nil {
+                                fields["ZIP Code"] = fieldValue
+                            }
+                        default:
+                            // If it's a 3-letter code but not recognized, still try to extract it
+                            if fieldValue.count > 2 && fieldValue != "NONE" && fieldValue != "UNK" && fieldValue != "N" {
+                                let cleanFieldName = fieldCode.replacingOccurrences(of: "_", with: " ").capitalized
+                                if fields[cleanFieldName] == nil {
+                                    fields[cleanFieldName] = convertAllCapsToProperCase(fieldValue)
+                                }
+                            }
+                    }
+                }
+            }
+        }
+        
+        // Also try to find field codes in the entire string without delimiters
+        let fieldCodePatterns = [
+            ("DAC", "First Name"),
+            ("DAD", "Middle Name"), 
+            ("DCS", "Last Name"),
+            ("DCA", "License Number"),
+            ("DBB", "Date of Birth"),
+            ("DBA", "Expiration Date"),
+            ("DBC", "Sex"),
+            ("DAU", "Height"),
+            ("DAY", "Eye Color"),
+            ("DAZ", "Hair Color"),
+            ("DAW", "Weight"),
+            ("DAG", "Street Address"),
+            ("DAI", "City"),
+            ("DCD", "Class"),
+            ("DCF", "Restrictions"),
+            ("DCG", "Endorsements"),
+            ("DCH", "Issue Date"),
+            ("DCI", "State"),
+            ("DCJ", "Address"),
+            ("DCK", "City"),
+            ("DCL", "State"),
+            ("DCM", "ZIP Code")
+        ]
+        
+        for (fieldCode, fieldName) in fieldCodePatterns {
+            if fields[fieldName] == nil {
+                let pattern = "\(fieldCode)([A-Z0-9]+)"
+                if let match = barcodeData.range(of: pattern, options: .regularExpression) {
+                    let fieldValue = String(barcodeData[match].dropFirst(3))
+                    print("   Found pattern match: \(fieldCode) = '\(fieldValue)'")
+                    
+                    switch fieldCode {
+                        case "DAC": fields["First Name"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAD": fields["Middle Name"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCS": fields["Last Name"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCA": fields["License Number"] = fieldValue
+                        case "DBB": fields["Date of Birth"] = formatDate(fieldValue)
+                        case "DBA": fields["Expiration Date"] = formatDate(fieldValue)
+                        case "DBC": fields["Sex"] = fieldValue == "1" ? "Male" : "Female"
+                        case "DAU": 
+                            if let inches = Int(fieldValue.replacingOccurrences(of: " in", with: "")) {
+                                let feet = inches / 12
+                                let remainingInches = inches % 12
+                                if remainingInches == 0 {
+                                    fields["Height"] = "\(feet)'"
+                                } else {
+                                    fields["Height"] = "\(feet)'\(remainingInches)\""
+                                }
+                            } else {
+                                fields["Height"] = fieldValue
+                            }
+                        case "DAY": fields["Eye Color"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAZ": fields["Hair Color"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAW": fields["Weight"] = "\(fieldValue) lbs"
+                        case "DAG": fields["Street Address"] = convertAllCapsToProperCase(fieldValue)
+                        case "DAI": fields["City"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCD": fields["Class"] = fieldValue
+                        case "DCF": fields["Restrictions"] = fieldValue
+                        case "DCG": fields["Endorsements"] = fieldValue
+                        case "DCH": fields["Issue Date"] = formatDate(fieldValue)
+                        case "DCI": fields["State"] = fieldValue
+                        case "DCJ": fields["Address"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCK": fields["City"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCL": fields["State"] = convertAllCapsToProperCase(fieldValue)
+                        case "DCM": fields["ZIP Code"] = fieldValue
+                        default: break
+                    }
+                }
+            }
+        }
+    }
+    
+    private func parseRawBarcodeData(_ barcodeData: String, into fields: inout [String: String]) {
+        // Try to extract common patterns from raw barcode data
+        let lines = barcodeData.components(separatedBy: .newlines)
+        
+        for line in lines {
+            let trimmedLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmedLine.isEmpty { continue }
+            
+            // Try to match common field patterns
+            if let nameMatch = trimmedLine.range(of: #"([A-Z]+\s+[A-Z]+\s+[A-Z]+)"#, options: .regularExpression) {
+                fields["Name"] = convertAllCapsToProperCase(String(trimmedLine[nameMatch]))
+            }
+            
+            if let dobMatch = trimmedLine.range(of: #"(\d{1,2}/\d{1,2}/\d{4})"#, options: .regularExpression) {
+                fields["Date of Birth"] = String(trimmedLine[dobMatch])
+            }
+            
+            if let licenseMatch = trimmedLine.range(of: #"([A-Z]\d{6,})"#, options: .regularExpression) {
+                fields["License Number"] = String(trimmedLine[licenseMatch])
+            }
+            
+            if let stateMatch = trimmedLine.range(of: #"^([A-Z]{2})"#, options: .regularExpression) {
+                fields["State"] = String(trimmedLine[stateMatch])
+            }
+            
+            if let classMatch = trimmedLine.range(of: #"CLASS\s+([A-Z])"#, options: .regularExpression) {
+                let classRange = trimmedLine[classMatch].range(of: #"[A-Z]"#, options: .regularExpression)!
+                fields["Class"] = String(trimmedLine[classRange])
+            }
+            
+            if let expMatch = trimmedLine.range(of: #"EXP\s+(\d{1,2}/\d{1,2}/\d{4})"#, options: .regularExpression) {
+                let expRange = trimmedLine[expMatch].range(of: #"\d{1,2}/\d{1,2}/\d{4}"#, options: .regularExpression)!
+                fields["Expiration Date"] = String(trimmedLine[expRange])
+            }
+            
+            if let issMatch = trimmedLine.range(of: #"ISS\s+(\d{1,2}/\d{1,2}/\d{4})"#, options: .regularExpression) {
+                let issRange = trimmedLine[issMatch].range(of: #"\d{1,2}/\d{1,2}/\d{4}"#, options: .regularExpression)!
+                fields["Issue Date"] = String(trimmedLine[issRange])
+            }
+            
+            if let sexMatch = trimmedLine.range(of: #"([MF])\d"#, options: .regularExpression) {
+                let sexRange = trimmedLine[sexMatch].range(of: #"[MF]"#, options: .regularExpression)!
+                fields["Sex"] = trimmedLine[sexRange] == "M" ? "Male" : "Female"
+            }
+            
+            if let heightMatch = trimmedLine.range(of: #"(\d{1,2})['\"]\s*[-]?\s*(\d{1,2})[\"]"#, options: .regularExpression) {
+                let heightText = String(trimmedLine[heightMatch])
+                fields["Height"] = formatHeight(heightText)
+            }
+            
+            if let weightMatch = trimmedLine.range(of: #"(\d{3})lb"#, options: .regularExpression) {
+                let weightRange = trimmedLine[weightMatch].range(of: #"\d{3}"#, options: .regularExpression)!
+                fields["Weight"] = "\(String(trimmedLine[weightRange])) lb"
+            }
+            
+            if let eyeMatch = trimmedLine.range(of: #"\b(BLU|BLUE|BRN|BROWN|GRN|GREEN|GRY|GRAY|HAZ|HAZEL|BLK|BLACK|AMB|AMBER|MUL|MULTI|PINK|PUR|PURPLE|YEL|YELLOW|WHI|WHITE|MAR|MARBLE|CHR|CHROME|GOL|GOLD|SIL|SILVER|COPPER|BURGUNDY|VIOLET|INDIGO|TEAL|TURQUOISE|AQUA|CYAN|LIME|OLIVE|NAVY|ROYAL|SKY|LIGHT|DARK|MED|MEDIUM)\b"#, options: .regularExpression) {
+                let eyeColor = String(trimmedLine[eyeMatch])
+                fields["Eye Color"] = convertAllCapsToProperCase(eyeColor)
+            }
+        }
+    }
+}
 
 #Preview {
     ContentView()
