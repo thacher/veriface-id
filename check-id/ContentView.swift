@@ -214,7 +214,9 @@ struct ContentView: View {
         .sheet(isPresented: $showingVideoCapture) {
             VideoCaptureView(
                 onVideoCaptured: { videoURL in
-                    processVideoForLiveness(videoURL)
+                    Task {
+                        await processVideoForLiveness(videoURL)
+                    }
                 }
             )
         }
@@ -395,28 +397,29 @@ struct ContentView: View {
         do {
             try requestHandler.perform([request])
             
-            if let observations = request.results as? [VNRecognizedTextObservation] {
-                print("🔍 OCR OBSERVATIONS DETAILS:")
-                print("   Total observations: \(observations.count)")
-                
-                let recognizedStrings = observations.compactMap { observation -> (String, Float)? in
-                    let topCandidate = observation.topCandidates(1).first
-                    return topCandidate.map { ($0.string, $0.confidence) }
-                }
-                
-                print("🔍 TEXT CONFIDENCE SCORES:")
-                for (index, (text, confidence)) in recognizedStrings.enumerated() {
-                    let confidencePercent = String(format: "%.1f", confidence * 100)
-                    print("   [\(index)] '\(text)' - Confidence: \(confidencePercent)%")
-                }
-                
-                let result = recognizedStrings.map { $0.0 }.joined(separator: " ")
-                print("🚨 OCR Success: \(result)")
-                print("🚨 Total characters extracted: \(result.count)")
-                return result
-            } else {
+            guard let observations = request.results else { 
                 print("🚨 OCR Failed - No observations")
+                return nil 
             }
+            
+            print("🔍 OCR OBSERVATIONS DETAILS:")
+            print("   Total observations: \(observations.count)")
+            
+            let recognizedStrings = observations.compactMap { observation -> (String, Float)? in
+                let topCandidate = observation.topCandidates(1).first
+                return topCandidate.map { ($0.string, $0.confidence) }
+            }
+            
+            print("🔍 TEXT CONFIDENCE SCORES:")
+            for (index, (text, confidence)) in recognizedStrings.enumerated() {
+                let confidencePercent = String(format: "%.1f", confidence * 100)
+                print("   [\(index)] '\(text)' - Confidence: \(confidencePercent)%")
+            }
+            
+            let result = recognizedStrings.map { $0.0 }.joined(separator: " ")
+            print("🚨 OCR Success: \(result)")
+            print("🚨 Total characters extracted: \(result.count)")
+            return result
         } catch {
             print("🚨 OCR Error: \(error)")
         }
@@ -445,13 +448,14 @@ struct ContentView: View {
         do {
             try requestHandler.perform([request])
             
-            if let observations = request.results as? [VNBarcodeObservation] {
-                let result = observations.first?.payloadStringValue
-                print("🚨 Barcode Success: \(result ?? "NIL")")
-                return result
-            } else {
+            guard let observations = request.results else {
                 print("🚨 Barcode Failed - No observations")
+                return nil
             }
+            
+            let result = observations.first?.payloadStringValue
+            print("🚨 Barcode Success: \(result ?? "NIL")")
+            return result
         } catch {
             print("🚨 Barcode Detection Error: \(error)")
         }
@@ -1325,11 +1329,10 @@ struct ContentView: View {
     
     // MARK: - Liveness Detection Methods
     
-    private func processVideoForLiveness(_ videoURL: URL) {
+    private func processVideoForLiveness(_ videoURL: URL) async {
         isProcessing = true
         
-        DispatchQueue.global(qos: .userInitiated).async {
-            let livenessResults = analyzeLivenessFromVideo(videoURL)
+        let livenessResults = await analyzeLivenessFromVideo(videoURL)
             
             DispatchQueue.main.async {
                 self.isProcessing = false
@@ -1352,40 +1355,79 @@ struct ContentView: View {
                 self.validationMessage = message
                 self.showingValidationAlert = true
             }
-        }
     }
     
     private func handleEnhancedVideoScanResults(_ results: VideoScanResults) {
         isProcessing = true
         
         DispatchQueue.global(qos: .userInitiated).async {
-            // Process the video scan results
+            // Process the video scan results using the same logic as camera capture
             let licenseData = results.extractedData
             
             // Update the appropriate image based on side
             DispatchQueue.main.async {
                 if results.extractedData.frontText != nil {
-                    // This was a front scan
+                    // This was a front scan - update front image
                     self.frontImage = results.currentFrame
                     self.extractedData = licenseData
-                } else {
-                    // This was a back scan
+                    
+                    print("🎥 Front Video Scan Complete:")
+                    print("   Frames Analyzed: \(results.frameCount)")
+                    print("   OCR Text: \(licenseData.frontText ?? "NIL")")
+                    print("   Extracted Fields: \(licenseData.extractedFields)")
+                } else if results.extractedData.barcodeData != nil {
+                    // This was a back scan - update back image
                     self.backImage = results.currentFrame
+                    
+                    // Merge with existing extracted data if available
                     if self.extractedData != nil {
                         self.extractedData?.barcodeData = licenseData.barcodeData
                         self.extractedData?.barcodeType = licenseData.barcodeType
+                        // Merge extracted fields
+                        for (key, value) in licenseData.extractedFields {
+                            self.extractedData?.extractedFields[key] = value
+                        }
+                    } else {
+                        self.extractedData = licenseData
                     }
+                    
+                    print("🎥 Back Video Scan Complete:")
+                    print("   Frames Analyzed: \(results.frameCount)")
+                    print("   Barcode Data: \(licenseData.barcodeData ?? "NIL")")
+                    print("   Extracted Fields: \(licenseData.extractedFields)")
                 }
                 
                 self.isProcessing = false
                 
-                // Show success message
+                // Show comprehensive results using the same structure as camera capture
                 var message = "🎥 Enhanced Video Scan Complete!\n\n"
                 message += "Frames Analyzed: \(results.frameCount)\n"
                 message += "Average Confidence: \(String(format: "%.1f", results.averageConfidence * 100))%\n"
                 message += "Quality Score: \(String(format: "%.1f", results.qualityScore * 100))%\n"
                 message += "Processing Time: \(String(format: "%.1f", results.processingTime))s\n\n"
-                message += "Text extracted from \(results.frameCount) frames for better accuracy."
+                
+                // Add extracted data using the same format as camera capture
+                if let frontText = licenseData.frontText, !frontText.isEmpty {
+                    message += "📄 Front License Data:\n"
+                    let frontPersonalData = self.extractCleanPersonalData(from: frontText)
+                    for (field, value) in frontPersonalData.sorted(by: { $0.0 < $1.0 }) {
+                        message += "\(field): \(value)\n"
+                    }
+                    message += "\n"
+                }
+                
+                if let barcodeData = licenseData.barcodeData, !barcodeData.isEmpty {
+                    message += "📊 Barcode Scan Results:\n"
+                    let barcodeFields = self.parseBarcodeData(barcodeData)
+                    if !barcodeFields.isEmpty {
+                        for (field, value) in barcodeFields.sorted(by: { $0.key < $1.key }) {
+                            message += "\(field): \(value)\n"
+                        }
+                    }
+                    message += "\n"
+                }
+                
+                message += "📋 Use the 'Report an Incident' button below to report an incident.\n"
                 
                 self.validationMessage = message
                 self.showingValidationAlert = true
@@ -1393,17 +1435,17 @@ struct ContentView: View {
         }
     }
     
-    private func analyzeLivenessFromVideo(_ videoURL: URL) -> LivenessResults {
+    private func analyzeLivenessFromVideo(_ videoURL: URL) async -> LivenessResults {
         var results = LivenessResults()
         
         // Create AVAsset for video analysis
         let asset = AVAsset(url: videoURL)
-        let duration = CMTimeGetSeconds(asset.duration)
-        results.duration = duration
+        let duration = try? await asset.load(.duration).seconds
+        results.duration = duration ?? 0.0
         
         // Extract frames for analysis
         let frameExtractor = VideoFrameExtractor()
-        let frames = frameExtractor.extractFrames(from: videoURL, maxFrames: 30)
+        let frames = await frameExtractor.extractFrames(from: videoURL, maxFrames: 30)
         
         guard !frames.isEmpty else {
             results.error = "No frames extracted from video"
@@ -1956,7 +1998,7 @@ struct ContentView: View {
         totalChecks += 1
         print("   Holographic Overlays: \(String(format: "%.1f", holographicScore))%")
         
-        let finalScore = totalChecks > 0 ? securityScore / Double(totalChecks) : 0.0
+        let finalScore = securityScore / Double(totalChecks)
         print("   Overall Security Score: \(String(format: "%.1f", finalScore))%")
         
         return finalScore
@@ -3640,11 +3682,11 @@ struct AuthenticityResults {
 
 // Video frame extractor for liveness detection
 class VideoFrameExtractor {
-    func extractFrames(from videoURL: URL, maxFrames: Int) -> [UIImage] {
+    func extractFrames(from videoURL: URL, maxFrames: Int) async -> [UIImage] {
         var frames: [UIImage] = []
         
         let asset = AVAsset(url: videoURL)
-        let duration = CMTimeGetSeconds(asset.duration)
+        let duration = (try? await asset.load(.duration).seconds) ?? 0.0
         let frameInterval = duration / Double(maxFrames)
         
         let imageGenerator = AVAssetImageGenerator(asset: asset)

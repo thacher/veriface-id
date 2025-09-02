@@ -106,6 +106,20 @@ struct EnhancedVideoCaptureView: View {
     }
     
     private var qualityColor: Color {
+        // Check if we have scan results with field progress
+        if let results = scanner.scanResults {
+            if results.fieldProgress.isComplete {
+                return .green
+            } else if results.fieldProgress.progressPercentage >= 75 {
+                return .yellow
+            } else if results.fieldProgress.progressPercentage >= 50 {
+                return .orange
+            } else {
+                return .red
+            }
+        }
+        
+        // Fallback to image quality feedback
         switch scanner.qualityFeedback {
         case .excellent:
             return .green
@@ -119,6 +133,19 @@ struct EnhancedVideoCaptureView: View {
     }
     
     private var qualityText: String {
+        // Check if we have scan results with field progress
+        if let results = scanner.scanResults {
+            if results.fieldProgress.isComplete {
+                return "Complete ✓"
+            } else {
+                let progress = Int(results.fieldProgress.progressPercentage)
+                let captured = results.fieldProgress.capturedFields.count
+                let total = results.fieldProgress.requiredFields.count
+                return "\(progress)% (\(captured)/\(total))"
+            }
+        }
+        
+        // Fallback to image quality feedback
         switch scanner.qualityFeedback {
         case .excellent:
             return "Excellent"
@@ -135,13 +162,31 @@ struct EnhancedVideoCaptureView: View {
         VStack(spacing: 20) {
             // Scan frame with quality outline
             ZStack {
-                // License frame guide
+                // License frame guide with enhanced styling for completion
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(qualityColor, lineWidth: 3)
+                    .stroke(qualityColor, lineWidth: scanner.scanResults?.fieldProgress.isComplete == true ? 5 : 3)
                     .frame(width: 280, height: 180)
                     .background(
                         RoundedRectangle(cornerRadius: 12)
                             .fill(Color.black.opacity(0.1))
+                    )
+                    .overlay(
+                        // Add completion indicator
+                        Group {
+                            if let results = scanner.scanResults, results.fieldProgress.isComplete {
+                                VStack {
+                                    HStack {
+                                        Spacer()
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.green)
+                                            .font(.system(size: 24))
+                                            .background(Circle().fill(Color.white))
+                                    }
+                                    Spacer()
+                                }
+                                .padding(8)
+                            }
+                        }
                     )
                 
                 // Corner guides
@@ -186,6 +231,19 @@ struct EnhancedVideoCaptureView: View {
     }
     
     private var instructionText: String {
+        // Check if we have scan results with field progress
+        if let results = scanner.scanResults {
+            if results.fieldProgress.isComplete {
+                return "Perfect! All required fields captured ✓"
+            } else {
+                let missingCount = results.fieldProgress.missingFields.count
+                let missingFields = results.fieldProgress.missingFields.prefix(3).joined(separator: ", ")
+                let suffix = missingCount > 3 ? " and \(missingCount - 3) more" : ""
+                return "Missing \(missingCount) field(s): \(missingFields)\(suffix)"
+            }
+        }
+        
+        // Fallback to image quality feedback
         switch scanner.qualityFeedback {
         case .excellent:
             return "Perfect! Keep holding steady"
@@ -232,7 +290,11 @@ struct EnhancedVideoCaptureView: View {
         if scanner.isScanning {
             return "Scanning... \(Int(scanner.scanProgress * 100))%"
         } else if let results = scanner.scanResults {
-            return "Scan complete! \(results.frameCount) frames analyzed"
+            let progress = Int(results.fieldProgress.progressPercentage)
+            let captured = results.fieldProgress.capturedFields.count
+            let total = results.fieldProgress.requiredFields.count
+            let status = results.fieldProgress.isComplete ? "Complete ✓" : "\(progress)% Complete"
+            return "\(status) - \(captured)/\(total) fields - \(results.frameCount) frames analyzed"
         } else {
             return "Ready to scan"
         }
