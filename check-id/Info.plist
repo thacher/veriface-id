@@ -28,18 +28,23 @@
 	<string>This app needs access to your photo library to select existing driver's license images for validation.</string>
 	<key>UILaunchScreen</key>
 	<dict/>
+	<key>UIRequiresFullScreen</key>
+	<true/>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedDeviceOrientations</key>
+	<array>
+		<string>UIDeviceOrientationPortrait</string>
+	</array>
+	<key>UISupportedDeviceOrientations~ipad</key>
+	<array>
+		<string>UIDeviceOrientationPortrait</string>
 	</array>
 </dict>
 </plist>

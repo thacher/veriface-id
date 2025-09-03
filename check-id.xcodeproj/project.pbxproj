@@ -8,20 +8,20 @@
 
 /* Begin PBXBuildFile section */
 		10DFCDA0665C0F24B54BF578 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5581CCEC28FD7781C01D5B23 /* ContentView.swift */; };
-		380735C91EFDCBCA9B3E902B /* EnhancedVideoCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D7E929D18AA3580B3EB5AA5 /* EnhancedVideoCaptureView.swift */; };
-		8726B34D7ABBCCB09A2CA92C /* VideoBasedScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF1D5CA4489A60C43A1C1F4F /* VideoBasedScanner.swift */; };
+		A1B2C3D4E5F6789012345678 /* FaceRecognitionScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F678901234567890 /* FaceRecognitionScanner.swift */; };
+		C1D2E3F4G5H6I7J8K9L0M1N2O3P4 /* LicenseScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2E3F4G5H6I7J8K9L0M1N2O3P4Q5 /* LicenseScanner.swift */; };
 		C8A45FA6E6BBD79ADD001CE9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 507448E7E43D49F1B74958C9 /* Assets.xcassets */; };
 		E4FD41195F158039AE1896B6 /* CheckIDApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 181A5FDFD3D09679AD4905F1 /* CheckIDApp.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		0D7E929D18AA3580B3EB5AA5 /* EnhancedVideoCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnhancedVideoCaptureView.swift; sourceTree = "<group>"; };
 		181A5FDFD3D09679AD4905F1 /* CheckIDApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckIDApp.swift; sourceTree = "<group>"; };
 		507448E7E43D49F1B74958C9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		5581CCEC28FD7781C01D5B23 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		B2C3D4E5F678901234567890 /* FaceRecognitionScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceRecognitionScanner.swift; sourceTree = "<group>"; };
+		D2E3F4G5H6I7J8K9L0M1N2O3P4Q5 /* LicenseScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseScanner.swift; sourceTree = "<group>"; };
 		D0B0005DA90BD2F6F88E78F3 /* check-id.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "check-id.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		DED0D4E02D66C0A884C8E1AD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		EF1D5CA4489A60C43A1C1F4F /* VideoBasedScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoBasedScanner.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -31,9 +31,9 @@
 				507448E7E43D49F1B74958C9 /* Assets.xcassets */,
 				181A5FDFD3D09679AD4905F1 /* CheckIDApp.swift */,
 				5581CCEC28FD7781C01D5B23 /* ContentView.swift */,
-				0D7E929D18AA3580B3EB5AA5 /* EnhancedVideoCaptureView.swift */,
+				B2C3D4E5F678901234567890 /* FaceRecognitionScanner.swift */,
+				D2E3F4G5H6I7J8K9L0M1N2O3P4Q5 /* LicenseScanner.swift */,
 				DED0D4E02D66C0A884C8E1AD /* Info.plist */,
-				EF1D5CA4489A60C43A1C1F4F /* VideoBasedScanner.swift */,
 			);
 			path = "check-id";
 			sourceTree = "<group>";
@@ -118,10 +118,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1B2C3D4E5F6789012345678 /* FaceRecognitionScanner.swift in Sources */,
+				C1D2E3F4G5H6I7J8K9L0M1N2O3P4 /* LicenseScanner.swift in Sources */,
 				E4FD41195F158039AE1896B6 /* CheckIDApp.swift in Sources */,
 				10DFCDA0665C0F24B54BF578 /* ContentView.swift in Sources */,
-				380735C91EFDCBCA9B3E902B /* EnhancedVideoCaptureView.swift in Sources */,
-				8726B34D7ABBCCB09A2CA92C /* VideoBasedScanner.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

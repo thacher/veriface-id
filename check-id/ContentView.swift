@@ -30,9 +30,9 @@ extension UIImage {
                            width: size.width,
                            height: size.height))
         }
-        let rotatedImage = UIGraphicsGetImageFromCurrentImageContext()
+        let rotatedImage = UIGraphicsGetImageFromCurrentImageContext() ?? self
         UIGraphicsEndImageContext()
-        return rotatedImage ?? self
+        return rotatedImage
     }
 }
 
@@ -2319,7 +2319,7 @@ struct FaceRecognitionView: View {
     let onComplete: (FaceRecognitionResults) -> Void
     let onBack: () -> Void
     
-    @StateObject private var scanner = VideoBasedScanner()
+    @StateObject private var faceScanner = FaceRecognitionScanner()
     @State private var showingInstructions = true
     @State private var countdown = 3
     @State private var isCountingDown = false
@@ -2428,7 +2428,7 @@ struct FaceRecognitionView: View {
                             // Live camera preview with face detection overlay
                             ZStack {
                                 // Camera preview
-                                if let currentFrame = scanner.currentFrame {
+                                if let currentFrame = faceScanner.currentFrame {
                                     Image(uiImage: currentFrame)
                                         .resizable()
                                         .aspectRatio(contentMode: .fill)
@@ -2450,15 +2450,15 @@ struct FaceRecognitionView: View {
                                 }
                                 
                                 // Face detection overlay
-                                if scanner.qualityFeedback != .none {
+                                if faceScanner.faceDetected {
                                     VStack(spacing: 8) {
-                                        Image(systemName: qualityFeedbackIcon)
+                                        Image(systemName: "face.smiling")
                                             .font(.system(size: 24, weight: .bold))
-                                            .foregroundColor(qualityFeedbackColor)
+                                            .foregroundColor(.green)
                                         
-                                        Text(qualityFeedbackText)
+                                        Text("Face Detected")
                                             .font(.system(size: 14, weight: .medium))
-                                            .foregroundColor(qualityFeedbackColor)
+                                            .foregroundColor(.green)
                                     }
                                     .padding(12)
                                     .background(Color.black.opacity(0.7))
@@ -2474,6 +2474,17 @@ struct FaceRecognitionView: View {
                                             .stroke(Color.white.opacity(0.2), lineWidth: 1)
                                             .frame(width: 220, height: 220)
                                     )
+                                
+                                // Progress indicator
+                                if faceScanner.isScanning {
+                                    VStack {
+                                        Spacer()
+                                        ProgressView(value: faceScanner.scanProgress)
+                                            .progressViewStyle(LinearProgressViewStyle(tint: .green))
+                                            .frame(width: 200)
+                                            .padding(.bottom, 20)
+                                    }
+                                }
                             }
                             
                             // Instructions
@@ -2571,34 +2582,7 @@ struct FaceRecognitionView: View {
             setupFaceRecognition()
         }
         .onDisappear {
-            scanner.stopScanning()
-        }
-    }
-    
-    private var qualityFeedbackIcon: String {
-        switch scanner.qualityFeedback {
-        case .excellent: return "checkmark.circle.fill"
-        case .good: return "checkmark.circle"
-        case .poor: return "exclamationmark.triangle.fill"
-        case .none: return "questionmark.circle"
-        }
-    }
-    
-    private var qualityFeedbackColor: Color {
-        switch scanner.qualityFeedback {
-        case .excellent: return .green
-        case .good: return .yellow
-        case .poor: return .red
-        case .none: return .white
-        }
-    }
-    
-    private var qualityFeedbackText: String {
-        switch scanner.qualityFeedback {
-        case .excellent: return "Excellent"
-        case .good: return "Good"
-        case .poor: return "Adjust Position"
-        case .none: return "Position Face"
+            faceScanner.stopScanning()
         }
     }
     
@@ -2651,12 +2635,9 @@ struct FaceRecognitionView: View {
     }
     
     private func setupFaceRecognition() {
-        // Configure scanner for face recognition
-        // scanDuration is already set to 5.0 seconds by default
-        
         // Start camera preview immediately for positioning
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            self.scanner.startCameraPreview()
+            self.faceScanner.startCameraPreview()
         }
     }
     
@@ -2680,59 +2661,14 @@ struct FaceRecognitionView: View {
     
     private func startFaceRecognition() {
         print("Starting face recognition...")
-        scanner.startScanning(for: .front) // Use front side for face recognition
+        faceScanner.startFaceRecognition()
         
         // Monitor for completion
         Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { timer in
-            if let results = scanner.scanResults {
+            if let results = faceScanner.faceResults {
                 timer.invalidate()
-                self.processFaceResults(results)
+                self.faceResults = results
             }
-        }
-    }
-    
-    private func processFaceResults(_ videoResults: VideoScanResults) {
-        // Extract face recognition results from video scan
-        let faceResults = FaceRecognitionResults(
-            confidence: videoResults.faceDetectionResults?.confidence ?? 0.0,
-            quality: videoResults.faceDetectionResults?.quality ?? "Unknown",
-            livenessScore: calculateLivenessScore(videoResults),
-            timestamp: Date().timeIntervalSince1970
-        )
-        
-        DispatchQueue.main.async {
-            self.faceResults = faceResults
-        }
-    }
-    
-    private func calculateLivenessScore(_ results: VideoScanResults) -> Double {
-        // Calculate liveness score based on video analysis
-        var score = 0.0
-        
-        // Face detection confidence
-        if let faceResults = results.faceDetectionResults {
-            score += faceResults.confidence * 0.4
-        }
-        
-        // Frame analysis for movement
-        let movementFrames = results.frameAnalyses.filter { $0.faceDetected }
-        if !movementFrames.isEmpty {
-            score += min(Double(movementFrames.count) / 10.0, 0.3) // Up to 30% for movement
-        }
-        
-        // Quality consistency
-        let avgQuality = results.frameAnalyses.map { getQualityScore($0.imageQuality) }.reduce(0, +) / Double(results.frameAnalyses.count)
-        score += avgQuality * 0.3
-        
-        return min(score, 1.0)
-    }
-    
-    private func getQualityScore(_ quality: ImageQualityMetrics) -> Double {
-        switch quality.overallQuality {
-        case "Excellent": return 1.0
-        case "Good": return 0.8
-        case "Fair": return 0.6
-        default: return 0.4
         }
     }
 }
@@ -2795,7 +2731,7 @@ struct FaceRecognitionResults {
     let timestamp: TimeInterval
 }
 
-// LicenseSide enum is defined in VideoBasedScanner.swift
+// LicenseSide enum is defined in LicenseScanner.swift
 
 // MARK: - License Data Structure
 
