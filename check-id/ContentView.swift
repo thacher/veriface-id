@@ -1232,36 +1232,85 @@ struct ContentView: View {
     }
     
     internal static func normalizeImageOrientation(_ image: UIImage) -> UIImage {
-        // Handle camera orientation - camera captures in landscape but device is portrait
-        // So we need to rotate the image to match the device orientation
+        // For both camera and photo library images, we want to ensure they're in landscape orientation
+        // Driver's licenses should be displayed horizontally
         
-        // Check the image orientation
+        // First handle EXIF orientation
+        let normalizedImage: UIImage
         switch image.imageOrientation {
         case .right:
-            // Camera captured in landscape, rotate to portrait
-            return image.rotate(radians: -.pi / 2)
+            // Rotate 90 degrees counterclockwise
+            normalizedImage = image.rotate(radians: -.pi / 2)
         case .left:
-            // Camera captured in landscape, rotate to portrait
-            return image.rotate(radians: .pi / 2)
+            // Rotate 90 degrees clockwise
+            normalizedImage = image.rotate(radians: .pi / 2)
         case .down:
-            // Camera captured upside down, rotate 180 degrees
-            return image.rotate(radians: .pi)
+            // Rotate 180 degrees
+            normalizedImage = image.rotate(radians: .pi)
         case .up:
             // Already correct orientation
-            return image
+            normalizedImage = image
         default:
             // For other orientations, normalize to up
             UIGraphicsBeginImageContextWithOptions(image.size, false, image.scale)
             image.draw(in: CGRect(origin: .zero, size: image.size))
-            let normalizedImage = UIGraphicsGetImageFromCurrentImageContext()
+            normalizedImage = UIGraphicsGetImageFromCurrentImageContext() ?? image
             UIGraphicsEndImageContext()
-            return normalizedImage ?? image
         }
+        
+        // Now ensure the image is in landscape orientation (width > height)
+        if normalizedImage.size.height > normalizedImage.size.width {
+            // Rotate 90 degrees clockwise to make it landscape
+            return normalizedImage.rotate(radians: .pi / 2)
+        }
+        
+        return normalizedImage
+    }
+    
+    internal static func normalizePhotoLibraryImage(_ image: UIImage) -> UIImage {
+        // Photo library images use the same normalization as camera images
+        // Both need to be rotated to landscape orientation
+        return normalizeImageOrientation(image)
     }
     
     internal static func processImageForDisplay(_ image: UIImage) -> UIImage {
-        // Normalize orientation first
+        // Normalize orientation first (ensure landscape)
         let normalizedImage = normalizeImageOrientation(image)
+        
+        // Enhanced image processing for better quality
+        let processedImage = enhanceImageQuality(normalizedImage)
+        
+        // Apply license-specific cropping for better results
+        let croppedImage = cropImageToLicenseFrame(processedImage)
+        
+        // Use a more appropriate target size that maintains aspect ratio
+        // Driver's licenses typically have an aspect ratio around 1.586 (width:height)
+        let targetWidth: CGFloat = 600
+        let targetHeight: CGFloat = 380 // Based on typical license proportions
+        
+        let aspectRatio = croppedImage.size.width / croppedImage.size.height
+        
+        var finalSize: CGSize
+        if aspectRatio > 1.586 {
+            // Wider than standard license - fit to width
+            finalSize = CGSize(width: targetWidth, height: targetWidth / aspectRatio)
+        } else {
+            // Taller than standard license - fit to height
+            finalSize = CGSize(width: targetHeight * aspectRatio, height: targetHeight)
+        }
+        
+        // Resize image to consistent resolution with high quality
+        UIGraphicsBeginImageContextWithOptions(finalSize, false, 2.0) // Higher scale factor for better quality
+        croppedImage.draw(in: CGRect(origin: .zero, size: finalSize))
+        let resizedImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        
+        return resizedImage ?? croppedImage
+    }
+    
+    internal static func processPhotoLibraryImage(_ image: UIImage) -> UIImage {
+        // Normalize orientation for photo library images (ensure landscape)
+        let normalizedImage = normalizePhotoLibraryImage(image)
         
         // Enhanced image processing for better quality
         let processedImage = enhanceImageQuality(normalizedImage)
@@ -1607,9 +1656,9 @@ struct ScanScreenView: View {
     let onComplete: (UIImage) -> Void
     let onBack: () -> Void
     
-    @State private var showingImagePicker = false
     @State private var showingCamera = false
     @State private var showingEnhancedVideoCapture = false
+    @State private var selectedPhotoItem: PhotosPickerItem?
     
     var body: some View {
         VStack(spacing: 0) {
@@ -1718,9 +1767,11 @@ struct ScanScreenView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                             }
                             
-                            Button(action: {
-                                showingImagePicker = true
-                            }) {
+                            PhotosPicker(
+                                selection: $selectedPhotoItem,
+                                matching: .images,
+                                photoLibrary: .shared()
+                            ) {
                                 HStack(spacing: 12) {
                                     Image(systemName: "photo.on.rectangle")
                                         .font(.system(size: 18, weight: .semibold))
@@ -1774,6 +1825,18 @@ struct ScanScreenView: View {
         }
         .sheet(isPresented: $showingCamera) {
             CameraView(image: $image)
+        }
+        .onChange(of: selectedPhotoItem) { item in
+            Task {
+                if let data = try? await item?.loadTransferable(type: Data.self),
+                   let uiImage = UIImage(data: data) {
+                    // Apply enhanced processing to the selected image (same as camera)
+                    let processedImage = ContentView.processImageForDisplay(uiImage)
+                    await MainActor.run {
+                        image = processedImage
+                    }
+                }
+            }
         }
     }
 }
@@ -1924,7 +1987,7 @@ struct ResultsView: View {
                             .font(.system(size: 20, weight: .bold))
                             .foregroundColor(.white)
                         
-                        HStack(spacing: 16) {
+                        HStack(alignment: .top, spacing: 16) {
                             // OCR Data (Left side)
                             VStack(spacing: 16) {
                                 Text("Front Data")
@@ -1953,53 +2016,52 @@ struct ResultsView: View {
                                     ForEach(Array(data.barcodeExtractedFields.keys.sorted()), id: \.self) { key in
                                         if let barcodeValue = data.barcodeExtractedFields[key], 
                                            !barcodeValue.isEmpty && 
-                                                                                       // Only show specific fields we want to display
-                                            (key == "Full Name" ||
-                                             key == "First Name" ||
-                                             key == "Last Name" ||
-                                             key == "Middle Name" ||
-                                             key == "Date of Birth" ||
-                                             key == "Issue Date" ||
-                                             key == "License Number" ||
-                                             key == "Address" ||
-                                             key == "City" ||
-                                             key == "State" ||
-                                             key == "ZIP Code" ||
-                                             key == "Street Address" ||
-                                             key == "Eye Color" ||
-                                             key == "Hair Color" ||
-                                             key == "Height" ||
-                                             key == "Weight" ||
-                                             key == "Race" ||
-                                             key == "Ethnicity" ||
-                                             key == "Organ Donor" ||
-                                             key == "Veteran" ||
-                                             key == "Real ID" ||
-                                             key == "CDL" ||
-                                             key == "CDL Class" ||
-                                             key == "CDL Endorsements" ||
-                                             key == "CDL Restrictions" ||
-                                             key == "CDL Expiration" ||
-                                             key == "CDL Issue Date" ||
-                                             key == "CDL State" ||
-                                             key == "CDL Address" ||
-                                             key == "CDL City" ||
-                                             key == "CDL ZIP Code" ||
-                                             key == "CDL Street Address" ||
-                                             key == "CDL Eye Color" ||
-                                             key == "CDL Hair Color" ||
-                                             key == "CDL Height" ||
-                                             key == "CDL Weight" ||
-                                             key == "CDL Race" ||
-                                             key == "CDL Ethnicity" ||
-                                             key == "CDL Organ Donor" ||
-                                             key == "CDL Veteran" ||
-                                             key == "CDL Real ID") {
+                                           // Only show specific fields we want to display
+                                           (key == "Full Name" ||
+                                            key == "First Name" ||
+                                            key == "Last Name" ||
+                                            key == "Middle Name" ||
+                                            key == "Date of Birth" ||
+                                            key == "Issue Date" ||
+                                            key == "License Number" ||
+                                            key == "Address" ||
+                                            key == "City" ||
+                                            key == "State" ||
+                                            key == "ZIP Code" ||
+                                            // Removed "Street Address" to avoid duplication with "Address"
+                                            key == "Eye Color" ||
+                                            key == "Hair Color" ||
+                                            key == "Height" ||
+                                            key == "Weight" ||
+                                            key == "Race" ||
+                                            key == "Ethnicity" ||
+                                            key == "Organ Donor" ||
+                                            key == "Veteran" ||
+                                            key == "Real ID" ||
+                                            key == "CDL" ||
+                                            key == "CDL Class" ||
+                                            key == "CDL Endorsements" ||
+                                            key == "CDL Restrictions" ||
+                                            key == "CDL Expiration" ||
+                                            key == "CDL Issue Date" ||
+                                            key == "CDL State" ||
+                                            key == "CDL Address" ||
+                                            key == "CDL City" ||
+                                            key == "CDL ZIP Code" ||
+                                            key == "CDL Street Address" ||
+                                            key == "CDL Eye Color" ||
+                                            key == "CDL Hair Color" ||
+                                            key == "CDL Height" ||
+                                            key == "CDL Weight" ||
+                                            key == "CDL Race" ||
+                                            key == "CDL Ethnicity" ||
+                                            key == "CDL Organ Donor" ||
+                                            key == "CDL Veteran" ||
+                                            key == "CDL Real ID") {
                                             DataCard(title: key, value: barcodeValue)
                                         }
                                     }
                                 }
-                                Spacer()
                             }
                             .frame(maxWidth: .infinity)
                         }
@@ -2152,6 +2214,91 @@ struct CameraView: UIViewControllerRepresentable {
                 parent.image = processedImage
             } else if let originalImage = info[.originalImage] as? UIImage {
                 // Apply enhanced processing to the original image
+                let processedImage = ContentView.processImageForDisplay(originalImage)
+                parent.image = processedImage
+            }
+            
+            parent.presentationMode.wrappedValue.dismiss()
+        }
+        
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            parent.presentationMode.wrappedValue.dismiss()
+        }
+    }
+}
+
+// MARK: - Modern Photos Picker (Alternative Implementation)
+
+struct ModernImagePicker: View {
+    @Binding var image: UIImage?
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedItem: PhotosPickerItem?
+    
+    var body: some View {
+        PhotosPicker(
+            selection: $selectedItem,
+            matching: .images,
+            photoLibrary: .shared()
+        ) {
+            Text("Select Image")
+                .font(.headline)
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 50)
+                .background(Color.blue)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .onChange(of: selectedItem) { item in
+            Task {
+                if let data = try? await item?.loadTransferable(type: Data.self),
+                   let uiImage = UIImage(data: data) {
+                    // Apply enhanced processing to the selected image
+                    let processedImage = ContentView.processImageForDisplay(uiImage)
+                    await MainActor.run {
+                        image = processedImage
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Image Picker for Photo Library
+
+struct ImagePicker: UIViewControllerRepresentable {
+    @Binding var image: UIImage?
+    @Environment(\.presentationMode) var presentationMode
+    
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.delegate = context.coordinator
+        picker.sourceType = .photoLibrary
+        picker.allowsEditing = true
+        picker.mediaTypes = ["public.image"] // Ensure only images are selectable
+        return picker
+    }
+    
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let parent: ImagePicker
+        
+        init(_ parent: ImagePicker) {
+            self.parent = parent
+        }
+        
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+            if let editedImage = info[.editedImage] as? UIImage {
+                // Apply enhanced processing to the selected image (same as camera)
+                let processedImage = ContentView.processImageForDisplay(editedImage)
+                parent.image = processedImage
+            } else if let originalImage = info[.originalImage] as? UIImage {
+                // Apply enhanced processing to the original image (same as camera)
                 let processedImage = ContentView.processImageForDisplay(originalImage)
                 parent.image = processedImage
             }
