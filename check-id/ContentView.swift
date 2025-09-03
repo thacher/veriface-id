@@ -744,7 +744,6 @@ struct ContentView: View {
                         case "DCH": fields["Issue Date"] = formatDate(fieldValue)
                         case "DCI": fields["State"] = fieldValue
                         case "DCJ": fields["Address"] = convertAllCapsToProperCase(fieldValue)
-                        case "DCK": fields["City"] = convertAllCapsToProperCase(fieldValue)
                         case "DCL": fields["State"] = convertAllCapsToProperCase(fieldValue)
                         case "DCM": fields["ZIP Code"] = fieldValue
                         case "DAA": fields["Full Name"] = convertAllCapsToProperCase(fieldValue)
@@ -1181,7 +1180,6 @@ struct ContentView: View {
             ("DCH", "Issue Date"),
             ("DCI", "State"),
             ("DCJ", "Address"),
-            ("DCK", "City"),
             ("DCL", "State"),
             ("DCM", "ZIP Code")
         ]
@@ -1224,7 +1222,6 @@ struct ContentView: View {
                         case "DCH": fields["Issue Date"] = formatDate(fieldValue)
                         case "DCI": fields["State"] = fieldValue
                         case "DCJ": fields["Address"] = convertAllCapsToProperCase(fieldValue)
-                        case "DCK": fields["City"] = convertAllCapsToProperCase(fieldValue)
                         case "DCL": fields["State"] = convertAllCapsToProperCase(fieldValue)
                         case "DCM": fields["ZIP Code"] = fieldValue
                         default: break
@@ -1954,11 +1951,55 @@ struct ResultsView: View {
                                 
                                 VStack(spacing: 12) {
                                     ForEach(Array(data.barcodeExtractedFields.keys.sorted()), id: \.self) { key in
-                                        if let barcodeValue = data.barcodeExtractedFields[key], !barcodeValue.isEmpty {
+                                        if let barcodeValue = data.barcodeExtractedFields[key], 
+                                           !barcodeValue.isEmpty && 
+                                                                                       // Only show specific fields we want to display
+                                            (key == "Full Name" ||
+                                             key == "First Name" ||
+                                             key == "Last Name" ||
+                                             key == "Middle Name" ||
+                                             key == "Date of Birth" ||
+                                             key == "Issue Date" ||
+                                             key == "License Number" ||
+                                             key == "Address" ||
+                                             key == "City" ||
+                                             key == "State" ||
+                                             key == "ZIP Code" ||
+                                             key == "Street Address" ||
+                                             key == "Eye Color" ||
+                                             key == "Hair Color" ||
+                                             key == "Height" ||
+                                             key == "Weight" ||
+                                             key == "Race" ||
+                                             key == "Ethnicity" ||
+                                             key == "Organ Donor" ||
+                                             key == "Veteran" ||
+                                             key == "Real ID" ||
+                                             key == "CDL" ||
+                                             key == "CDL Class" ||
+                                             key == "CDL Endorsements" ||
+                                             key == "CDL Restrictions" ||
+                                             key == "CDL Expiration" ||
+                                             key == "CDL Issue Date" ||
+                                             key == "CDL State" ||
+                                             key == "CDL Address" ||
+                                             key == "CDL City" ||
+                                             key == "CDL ZIP Code" ||
+                                             key == "CDL Street Address" ||
+                                             key == "CDL Eye Color" ||
+                                             key == "CDL Hair Color" ||
+                                             key == "CDL Height" ||
+                                             key == "CDL Weight" ||
+                                             key == "CDL Race" ||
+                                             key == "CDL Ethnicity" ||
+                                             key == "CDL Organ Donor" ||
+                                             key == "CDL Veteran" ||
+                                             key == "CDL Real ID") {
                                             DataCard(title: key, value: barcodeValue)
                                         }
                                     }
                                 }
+                                Spacer()
                             }
                             .frame(maxWidth: .infinity)
                         }

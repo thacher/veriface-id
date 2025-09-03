@@ -2045,7 +2045,6 @@ class VideoFrameProcessor: NSObject {
             ("DCH", "Issue Date"),
             ("DCI", "State"),
             ("DCJ", "Address"),
-            ("DCK", "City"),
             ("DCL", "State"),
             ("DCM", "ZIP Code")
         ]
