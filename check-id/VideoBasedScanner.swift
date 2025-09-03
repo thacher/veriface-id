@@ -79,6 +79,14 @@ struct ImageQualityMetrics {
     let overallQuality: String
 }
 
+struct FaceDetectionResults {
+    let faceDetected: Bool
+    let confidence: Double
+    let faceRect: CGRect?
+    let quality: String
+    let timestamp: TimeInterval
+}
+
 // MARK: - Video-Based Scanner
 
 class VideoBasedScanner: NSObject, ObservableObject {
@@ -100,6 +108,11 @@ class VideoBasedScanner: NSObject, ObservableObject {
         case good
         case poor
         case excellent
+    }
+    
+    func startCameraPreview() {
+        print("Starting camera preview for face recognition...")
+        setupCaptureSession()
     }
     
     func startScanning(for side: LicenseSide) {
@@ -159,6 +172,13 @@ class VideoBasedScanner: NSObject, ObservableObject {
             return
         }
         
+        // Configure session on background thread
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            self?.configureCaptureSession(session)
+        }
+    }
+    
+    private func configureCaptureSession(_ session: AVCaptureSession) {
         guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
             print("Failed to get camera device")
             DispatchQueue.main.async { [weak self] in
@@ -198,13 +218,18 @@ class VideoBasedScanner: NSObject, ObservableObject {
                 print("Failed to add video output")
             }
             
-            previewLayer = AVCaptureVideoPreviewLayer(session: session)
-            previewLayer?.videoGravity = .resizeAspectFill
+            DispatchQueue.main.async { [weak self] in
+                self?.previewLayer = AVCaptureVideoPreviewLayer(session: session)
+                self?.previewLayer?.videoGravity = .resizeAspectFill
+            }
             
             // Start the session
             session.startRunning()
+            print("Capture session started successfully")
             
-            print("Capture session setup completed successfully")
+            DispatchQueue.main.async {
+                print("Capture session setup completed successfully")
+            }
             
         } catch {
             print("Failed to setup capture session: \(error)")
@@ -339,17 +364,17 @@ class VideoFrameProcessor: NSObject {
         var tempLicenseData = LicenseData()
         if side == .front {
             tempLicenseData.frontText = currentText
-            tempLicenseData.extractedFields = parseLicenseTextComprehensive(currentText)
+            tempLicenseData.ocrExtractedFields = parseLicenseTextComprehensive(currentText)
         } else {
             tempLicenseData.barcodeData = currentText
-            tempLicenseData.extractedFields = parseBarcodeDataComprehensive(currentText)
+            tempLicenseData.barcodeExtractedFields = parseBarcodeDataComprehensive(currentText)
         }
         
         // Check data completeness
         let dataCompleteness = validateDataCompleteness(licenseData: tempLicenseData, side: side)
         
         // Calculate field progress for specific driver's license fields
-        let fieldProgress = calculateFieldProgress(tempLicenseData.extractedFields)
+        let fieldProgress = calculateFieldProgress(side == .front ? tempLicenseData.ocrExtractedFields : tempLicenseData.barcodeExtractedFields)
         
         // Update quality feedback based on field progress and side
         let qualityFeedback: VideoBasedScanner.QualityFeedback
@@ -777,19 +802,19 @@ class VideoFrameProcessor: NSObject {
                 // Back side: Parse barcode data
                 licenseData.barcodeData = aggregatedText
                 licenseData.barcodeType = "PDF417 (Driver's License)"
-                licenseData.extractedFields = parseBarcodeDataComprehensive(aggregatedText)
+                licenseData.barcodeExtractedFields = parseBarcodeDataComprehensive(aggregatedText)
                 
                 print("🎥 Video Scan - Back Side Results:")
                 print("   Barcode Data: \(aggregatedText)")
-                print("   Extracted Fields: \(licenseData.extractedFields)")
+                print("   Extracted Fields: \(licenseData.barcodeExtractedFields)")
             } else {
                 // Front side: Parse OCR text
                 licenseData.frontText = aggregatedText
-                licenseData.extractedFields = parseLicenseTextComprehensive(aggregatedText)
+                licenseData.ocrExtractedFields = parseLicenseTextComprehensive(aggregatedText)
                 
                 print("🎥 Video Scan - Front Side Results:")
                 print("   OCR Text: \(aggregatedText)")
-                print("   Extracted Fields: \(licenseData.extractedFields)")
+                print("   Extracted Fields: \(licenseData.ocrExtractedFields)")
             }
         }
         
@@ -806,7 +831,7 @@ class VideoFrameProcessor: NSObject {
             faceDetectionResults: faceDetectionResults,
             currentFrame: getBestQualityFrame(),
             dataCompleteness: validateDataCompleteness(licenseData: licenseData, side: frameAnalyses.first?.barcodeDetected == true ? .back : .front),
-            fieldProgress: calculateFieldProgress(licenseData.extractedFields)
+            fieldProgress: calculateFieldProgress(frameAnalyses.first?.barcodeDetected == true ? licenseData.barcodeExtractedFields : licenseData.ocrExtractedFields)
         )
         
         print("🎥 Video Scan Complete:")
@@ -836,7 +861,7 @@ class VideoFrameProcessor: NSObject {
     
     private func validateDataCompleteness(licenseData: LicenseData, side: LicenseSide) -> DataCompleteness {
         let requiredFields: [String]
-        let capturedFields = Array(licenseData.extractedFields.keys)
+        let capturedFields: [String]
         
         if side == .front {
             // Required fields for front of license
@@ -845,6 +870,7 @@ class VideoFrameProcessor: NSObject {
                 "Class", "Expiration Date", "Issue Date", "Sex", "Height", 
                 "Weight", "Eye Color"
             ]
+            capturedFields = Array(licenseData.ocrExtractedFields.keys)
         } else {
             // Required fields for back of license (barcode) - focus on key identification fields
             requiredFields = [
@@ -852,6 +878,7 @@ class VideoFrameProcessor: NSObject {
                 "Class", "Expiration Date", "Issue Date", "Sex", "Height", 
                 "Eye Color", "Address", "City", "ZIP Code"
             ]
+            capturedFields = Array(licenseData.barcodeExtractedFields.keys)
         }
         
         let missingFields = requiredFields.filter { !capturedFields.contains($0) }
@@ -900,11 +927,17 @@ class VideoFrameProcessor: NSObject {
         // Return the actual best quality frame from captured frames
         if let bestAnalysis = bestFrame,
            bestAnalysis.frameIndex < capturedFrames.count {
-            return capturedFrames[bestAnalysis.frameIndex]
+            let frame = capturedFrames[bestAnalysis.frameIndex]
+            // Ensure the frame is properly oriented for display
+            return ContentView.processImageForDisplay(frame)
         }
         
         // Fallback to the most recent frame
-        return capturedFrames.last
+        if let lastFrame = capturedFrames.last {
+            return ContentView.processImageForDisplay(lastFrame)
+        }
+        
+        return nil
     }
     
     private func getQualityScore(_ quality: ImageQualityMetrics) -> Double {
@@ -989,7 +1022,7 @@ class VideoFrameProcessor: NSObject {
             ("height", #"(\d{1,2})['\"]\s*[-]?\s*(\d{1,2})[\"]"#),
             ("weight", #"(\d{3})lb"#),
             ("eye_color", #"\b(BLU|BLUE|BRN|BROWN|GRN|GREEN|GRY|GRAY|HAZ|HAZEL|BLK|BLACK|AMB|AMBER|MUL|MULTI|PINK|PUR|PURPLE|YEL|YELLOW|WHI|WHITE|MAR|MARBLE|CHR|CHROME|GOL|GOLD|SIL|SILVER|COPPER|BURGUNDY|VIOLET|INDIGO|TEAL|TURQUOISE|AQUA|CYAN|LIME|OLIVE|NAVY|ROYAL|SKY|LIGHT|DARK|MED|MEDIUM)\b"#),
-            ("address", #"(\d+\s+[A-Z\s]+(?:ST|STREET|AVE|AVENUE|RD|ROAD|DR|DRIVE|BLVD|BOULEVARD)\s+[A-Z\s]+)"#),
+                                    ("address", #"(\d+\s+[A-Z\s]+(?:ST|STREET|AVE|AVENUE|RD|ROAD|DR|DRIVE|BLVD|BOULEVARD))"#),
             ("city_state_zip", #"([A-Z]+),\s+([A-Z]{2})\s+(\d{5}(?:-\d{4})?)"#),
             ("veteran", #"VETERAN"#),
             ("real_id", #"REAL ID"#)
@@ -1117,10 +1150,10 @@ class VideoFrameProcessor: NSObject {
         // Extract weight
         if let weightMatch = text.range(of: #"(\d{3})lb"#, options: .regularExpression) {
             let weightRange = text[weightMatch].range(of: #"\d{3}"#, options: .regularExpression)!
-            fields["Weight"] = "\(String(text[weightRange])) lb"
+            fields["Weight"] = "\(String(text[weightRange])) lbs"
         } else if let weightMatch = text.range(of: #"WGT\s+(\d{3})"#, options: .regularExpression) {
             let weightRange = text[weightMatch].range(of: #"\d{3}"#, options: .regularExpression)!
-            fields["Weight"] = "\(String(text[weightRange])) lb"
+            fields["Weight"] = "\(String(text[weightRange])) lbs"
         }
         
         // Extract eye color
@@ -1223,7 +1256,7 @@ class VideoFrameProcessor: NSObject {
         if fields["Weight"] == nil {
             if let weightMatch = text.range(of: #"(\d{3})"#, options: .regularExpression) {
                 let weightRange = text[weightMatch].range(of: #"\d{3}"#, options: .regularExpression)!
-                fields["Weight"] = "\(String(text[weightRange])) lb"
+                fields["Weight"] = "\(String(text[weightRange])) lbs"
             }
         }
         
@@ -1248,11 +1281,28 @@ class VideoFrameProcessor: NSObject {
         // Handle ANSI format barcode data
         if barcodeData.contains("ANSI") {
             print("📋 Detected ANSI format barcode")
+            
+            // First, extract license number from the end of ANSI data
             let lines = barcodeData.components(separatedBy: "\n")
             for line in lines {
-                if line.count >= 3 {
-                    let fieldCode = String(line.prefix(3))
-                    let fieldValue = String(line.dropFirst(3))
+                if line.contains("ANSI") && line.contains("DL") {
+                    // Look for the license number at the end of the ANSI line
+                    // Pattern: letter followed by numbers at the end
+                    if let licenseMatch = line.range(of: #"([A-Z]\d+)$"#, options: .regularExpression) {
+                        let license = String(line[licenseMatch])
+                        fields["Driver License Number"] = license
+                        print("   ✅ Found License from ANSI: \(fields["Driver License Number"]!)")
+                        break // Stop after finding the first license number
+                    }
+                }
+            }
+            
+            // Parse individual field codes
+            for line in lines {
+                let trimmedLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                if trimmedLine.count >= 3 {
+                    let fieldCode = String(trimmedLine.prefix(3))
+                    let fieldValue = String(trimmedLine.dropFirst(3))
                     
                     print("   Field \(fieldCode): '\(fieldValue)'")
                     
@@ -1280,7 +1330,11 @@ class VideoFrameProcessor: NSObject {
                         case "DAW": fields["Weight"] = "\(fieldValue) lbs"
                         case "DAG": fields["Street Address"] = convertAllCapsToProperCase(fieldValue)
                         case "DAI": fields["City"] = convertAllCapsToProperCase(fieldValue)
-                        case "DCA": fields["License Number"] = fieldValue
+                        case "DCA": 
+                            // Skip DCA field as we already extracted license from ANSI header
+                            if fields["Driver License Number"] == nil {
+                                fields["License Number"] = fieldValue
+                            }
                         case "DCD": fields["Class"] = fieldValue
                         case "DCF": fields["Restrictions"] = fieldValue
                         case "DCG": fields["Endorsements"] = fieldValue
@@ -1487,6 +1541,11 @@ class VideoFrameProcessor: NSObject {
         
         if let endorsements = fields["Endorsements"] {
             mappedFields["Endorsements"] = endorsements
+        }
+        
+        // Handle veteran status
+        if let veteranIndicator = fields["Veteran Indicator"] {
+            mappedFields["Veteran Status"] = veteranIndicator == "1" ? "Yes" : "No"
         }
         
         // Add all other fields from the barcode data
@@ -2091,7 +2150,7 @@ class VideoFrameProcessor: NSObject {
             
             if let weightMatch = trimmedLine.range(of: #"(\d{3})lb"#, options: .regularExpression) {
                 let weightRange = trimmedLine[weightMatch].range(of: #"\d{3}"#, options: .regularExpression)!
-                fields["Weight"] = "\(String(trimmedLine[weightRange])) lb"
+                fields["Weight"] = "\(String(trimmedLine[weightRange])) lbs"
             }
             
             if let eyeMatch = trimmedLine.range(of: #"\b(BLU|BLUE|BRN|BROWN|GRN|GREEN|GRY|GRAY|HAZ|HAZEL|BLK|BLACK|AMB|AMBER|MUL|MULTI|PINK|PUR|PURPLE|YEL|YELLOW|WHI|WHITE|MAR|MARBLE|CHR|CHROME|GOL|GOLD|SIL|SILVER|COPPER|BURGUNDY|VIOLET|INDIGO|TEAL|TURQUOISE|AQUA|CYAN|LIME|OLIVE|NAVY|ROYAL|SKY|LIGHT|DARK|MED|MEDIUM)\b"#, options: .regularExpression) {
@@ -2279,19 +2338,29 @@ extension VideoBasedScanner: AVCaptureVideoDataOutputSampleBufferDelegate {
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         
-        // Convert to UIImage
+        // Convert to UIImage with proper orientation
         let ciImage = CIImage(cvImageBuffer: imageBuffer)
         let context = CIContext()
         guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else { return }
-        let frame = UIImage(cgImage: cgImage)
+        
+        // Create UIImage with proper orientation
+        let frame = UIImage(cgImage: cgImage, scale: 1.0, orientation: .right)
+        
+        // Apply image processing for better display
+        let processedFrame = processFrameForDisplay(frame)
         
         // Update current frame for preview
         DispatchQueue.main.async {
-            self.currentFrame = frame
+            self.currentFrame = processedFrame
         }
         
-        // Send frame to processor for analysis
-        frameProcessor?.addCapturedFrame(frame)
+        // Send processed frame to processor for analysis
+        frameProcessor?.addCapturedFrame(processedFrame)
+    }
+    
+    private func processFrameForDisplay(_ frame: UIImage) -> UIImage {
+        // Apply the same processing as static images for consistency
+        return ContentView.processImageForDisplay(frame)
     }
 }
 
