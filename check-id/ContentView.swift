@@ -2425,6 +2425,27 @@ struct FaceRecognitionView: View {
                     } else {
                         // Show capture interface with live camera preview
                         VStack(spacing: 30) {
+                            // Instructions - moved above camera with better spacing
+                            VStack(spacing: 16) {
+                                if faceScanner.isScanning {
+                                    // Show current guidance instruction
+                                    FaceGuidanceInstruction(
+                                        step: faceScanner.currentGuidanceStep,
+                                        progress: faceScanner.guidanceProgress
+                                    )
+                                } else {
+                                    // Show general instructions
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("Position your face in the circle and tap 'Start Recognition' when ready")
+                                            .font(.system(size: 16, weight: .medium))
+                                            .foregroundColor(.white.opacity(0.8))
+                                            .multilineTextAlignment(.center)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 40)
+                            .padding(.top, 60) // Add top padding to center between top and video circle
+                            
                             // Live camera preview with face detection overlay
                             ZStack {
                                 // Camera preview
@@ -2449,58 +2470,52 @@ struct FaceRecognitionView: View {
                                         )
                                 }
                                 
-                                // Face detection overlay
-                                if faceScanner.faceDetected {
-                                    VStack(spacing: 8) {
-                                        Image(systemName: "face.smiling")
-                                            .font(.system(size: 24, weight: .bold))
-                                            .foregroundColor(.green)
-                                        
-                                        Text("Face Detected")
-                                            .font(.system(size: 14, weight: .medium))
-                                            .foregroundColor(.green)
-                                    }
-                                    .padding(12)
-                                    .background(Color.black.opacity(0.7))
-                                    .cornerRadius(8)
-                                }
-                                
-                                // Face positioning guide
+                                // Face positioning guide - made more subtle
                                 Circle()
-                                    .stroke(Color.white.opacity(0.4), lineWidth: 2)
-                                    .frame(width: 200, height: 200)
+                                    .stroke(Color.white.opacity(0.3), lineWidth: 2)
+                                    .frame(width: 240, height: 240)
                                     .background(
                                         Circle()
-                                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                                            .frame(width: 220, height: 220)
+                                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                                            .frame(width: 260, height: 260)
                                     )
                                 
-                                // Progress indicator
+                                // Face guidance overlay
                                 if faceScanner.isScanning {
-                                    VStack {
-                                        Spacer()
-                                        ProgressView(value: faceScanner.scanProgress)
-                                            .progressViewStyle(LinearProgressViewStyle(tint: .green))
-                                            .frame(width: 200)
-                                            .padding(.bottom, 20)
-                                    }
+                                    FaceGuidanceOverlay(
+                                        currentStep: faceScanner.currentGuidanceStep,
+                                        progress: faceScanner.guidanceProgress
+                                    )
                                 }
                             }
                             
-                            // Instructions
-                            VStack(spacing: 16) {
-                                Text("Face Recognition Instructions")
-                                    .font(.system(size: 18, weight: .bold))
-                                    .foregroundColor(.white)
-                                
-                                VStack(alignment: .leading, spacing: 8) {
-                                    FaceInstructionRow(icon: "eye.fill", text: "Look directly at the camera")
-                                    FaceInstructionRow(icon: "hand.raised.fill", text: "Keep your face centered")
-                                    FaceInstructionRow(icon: "arrow.up.and.down", text: "Move your head slightly")
-                                    FaceInstructionRow(icon: "clock.fill", text: "Follow the prompts for 5 seconds")
+                            // Progress indicator - moved below camera
+                            if faceScanner.isScanning {
+                                VStack(spacing: 16) {
+                                    // Progress bar with better styling
+                                    VStack(spacing: 8) {
+                                        ProgressView(value: faceScanner.scanProgress)
+                                            .progressViewStyle(LinearProgressViewStyle(tint: .green))
+                                            .frame(width: 280, height: 8)
+                                            .scaleEffect(y: 1.2)
+                                        
+                                        Text("\(Int(faceScanner.scanProgress * 100))% Complete")
+                                            .font(.system(size: 16, weight: .semibold))
+                                            .foregroundColor(.green)
+                                    }
+                                    
+                                    Text("Scanning in progress...")
+                                        .font(.system(size: 18, weight: .medium))
+                                        .foregroundColor(.white.opacity(0.9))
                                 }
+                                .padding(.horizontal, 40)
+                                .padding(.vertical, 20)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color.black.opacity(0.6))
+                                )
+                                .padding(.horizontal, 20)
                             }
-                            .padding(.horizontal, 40)
                         }
                     }
                 }
@@ -2527,34 +2542,6 @@ struct FaceRecognitionView: View {
                                 gradient: Gradient(colors: [
                                     Color.green,
                                     Color.green.opacity(0.8)
-                                ]),
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 40)
-                } else {
-                    Button(action: {
-                        showingInstructions = false
-                        startCountdown()
-                    }) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "video.badge.plus")
-                                .font(.system(size: 18, weight: .semibold))
-                            Text("Start Face Recognition")
-                                .font(.system(size: 18, weight: .semibold))
-                        }
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 56)
-                        .background(
-                            LinearGradient(
-                                gradient: Gradient(colors: [
-                                    Color(red: 0.2, green: 0.6, blue: 1.0),
-                                    Color(red: 0.1, green: 0.5, blue: 0.9)
                                 ]),
                                 startPoint: .leading,
                                 endPoint: .trailing
@@ -2591,28 +2578,160 @@ struct FaceRecognitionView: View {
             Color.black.opacity(0.8)
                 .ignoresSafeArea()
             
-            VStack(spacing: 30) {
-                Text("Face Recognition Guide")
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(.white)
+            VStack(spacing: 0) {
+                // Title section with better spacing
+                VStack(spacing: 8) {
+                    Text("Face Recognition Guide")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.center)
+                    
+                    Text("Follow these steps for successful face recognition")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.white.opacity(0.8))
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.top, 40)
+                .padding(.bottom, 30)
                 
-                VStack(alignment: .leading, spacing: 16) {
-                    FaceGuideRow(icon: "1.circle.fill", title: "Position", description: "Center your face in the circle")
-                    FaceGuideRow(icon: "2.circle.fill", title: "Lighting", description: "Ensure good lighting on your face")
-                    FaceGuideRow(icon: "3.circle.fill", title: "Movement", description: "Follow prompts for natural movement")
-                    FaceGuideRow(icon: "4.circle.fill", title: "Duration", description: "Process takes 5 seconds")
+                // Camera selection section (without title)
+                HStack(spacing: 20) {
+                    Button(action: {
+                        faceScanner.currentCameraPosition = .front
+                    }) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "person.fill")
+                                .font(.system(size: 20, weight: .medium))
+                            Text("Front Camera")
+                                .font(.system(size: 16, weight: .medium))
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(
+                            faceScanner.currentCameraPosition == .front ?
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    Color(red: 0.2, green: 0.6, blue: 1.0),
+                                    Color(red: 0.1, green: 0.5, blue: 0.9)
+                                ]),
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ) :
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    Color.white.opacity(0.2),
+                                    Color.white.opacity(0.2)
+                                ]),
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    
+                    Button(action: {
+                        faceScanner.currentCameraPosition = .back
+                    }) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "camera.fill")
+                                .font(.system(size: 20, weight: .medium))
+                            Text("Back Camera")
+                                .font(.system(size: 16, weight: .medium))
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(
+                            faceScanner.currentCameraPosition == .back ?
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    Color(red: 0.2, green: 0.6, blue: 1.0),
+                                    Color(red: 0.1, green: 0.5, blue: 0.9)
+                                ]),
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ) :
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    Color.white.opacity(0.2),
+                                    Color.white.opacity(0.2)
+                                ]),
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
                 }
                 .padding(.horizontal, 40)
+                .padding(.bottom, 20)
                 
-                Button("Start Recognition") {
-                    showingInstructions = false
-                    startCountdown()
+                // Main content with better spacing
+                VStack(alignment: .leading, spacing: 20) {
+                    // Main steps
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Steps:")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(.white)
+                            .padding(.bottom, 4)
+                        
+                        FaceGuideRow(icon: "1.circle.fill", title: "Position", description: "Center your face in the circle")
+                        FaceGuideRow(icon: "2.circle.fill", title: "Lighting", description: "Ensure good lighting on your face")
+                        FaceGuideRow(icon: "3.circle.fill", title: "Movement", description: "Follow prompts for natural movement")
+                        FaceGuideRow(icon: "4.circle.fill", title: "Duration", description: "Process takes 5 seconds")
+                    }
+                    
+                    // Additional tips with better spacing
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Additional Tips:")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(.white)
+                            .padding(.bottom, 4)
+                        
+                        VStack(alignment: .leading, spacing: 12) {
+                            FaceInstructionRow(icon: "eye.fill", text: "Look directly at the camera")
+                            FaceInstructionRow(icon: "hand.raised.fill", text: "Keep your face centered")
+                            FaceInstructionRow(icon: "arrow.up.and.down", text: "Move your head slightly")
+                            FaceInstructionRow(icon: "clock.fill", text: "Follow the prompts for 5 seconds")
+                            FaceInstructionRow(icon: "camera.rotate", text: "Tap camera icon to switch cameras")
+                        }
+                    }
                 }
-                .foregroundColor(.white)
-                .padding(.horizontal, 32)
-                .padding(.vertical, 16)
-                .background(Color.blue)
-                .cornerRadius(12)
+                .padding(.horizontal, 40)
+                .padding(.bottom, 20) // Add 20px spacing after additional tips
+                
+                Spacer()
+                
+                // Button section with better spacing
+                VStack(spacing: 16) {
+                    Button("Start Recognition") {
+                        showingInstructions = false
+                        startCountdown()
+                    }
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .background(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color(red: 0.2, green: 0.6, blue: 1.0),
+                                Color(red: 0.1, green: 0.5, blue: 0.9)
+                            ]),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(16)
+                    .padding(.horizontal, 40)
+                    
+                    Text("Tap to begin the face recognition process")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.bottom, 40)
             }
         }
     }
@@ -2680,15 +2799,16 @@ struct FaceInstructionRow: View {
     let text: String
     
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 14) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(.white.opacity(0.8))
-                .frame(width: 20)
+                .font(.system(size: 18, weight: .medium))
+                .foregroundColor(.white.opacity(0.9))
+                .frame(width: 24)
             
             Text(text)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.white.opacity(0.8))
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(.white.opacity(0.9))
+                .lineLimit(2)
             
             Spacer()
         }
@@ -2701,20 +2821,21 @@ struct FaceGuideRow: View {
     let description: String
     
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 18) {
             Image(systemName: icon)
-                .font(.system(size: 24, weight: .medium))
+                .font(.system(size: 26, weight: .medium))
                 .foregroundColor(Color(red: 0.2, green: 0.6, blue: 1.0))
-                .frame(width: 32)
+                .frame(width: 36)
             
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(title)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(.white)
                 
                 Text(description)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.white.opacity(0.7))
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(.white.opacity(0.8))
+                    .lineLimit(2)
             }
             
             Spacer()
@@ -2722,7 +2843,138 @@ struct FaceGuideRow: View {
     }
 }
 
-// MARK: - Face Recognition Results
+// MARK: - Face Guidance Components
+
+struct FaceGuidanceOverlay: View {
+    let currentStep: FaceRecognitionScanner.FaceGuidanceStep
+    let progress: Double
+    
+    var body: some View {
+        ZStack {
+            // Animated guidance circle - moved outside face area
+            Circle()
+                .stroke(Color.green.opacity(0.8), lineWidth: 4)
+                .frame(width: 320, height: 320)
+                .scaleEffect(1.0 + (progress * 0.15))
+                .opacity(0.7 + (progress * 0.3))
+            
+            // Direction arrows for look movements - positioned outside face
+            if [.lookLeft, .lookRight, .lookUp, .lookDown].contains(currentStep) {
+                directionArrow
+            }
+            
+            // Smile indicator - moved to top of circle, not over face
+            if currentStep == .smile {
+                smileIndicator
+            }
+            
+            // Blink indicator - moved to top of circle
+            if currentStep == .blink {
+                blinkIndicator
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var directionArrow: some View {
+        let offset: CGFloat = 140
+        
+        Group {
+            switch currentStep {
+            case .lookLeft:
+                Image(systemName: "arrow.left")
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundColor(.green)
+                    .offset(x: -offset)
+            case .lookRight:
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundColor(.green)
+                    .offset(x: offset)
+            case .lookUp:
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundColor(.green)
+                    .offset(y: -offset)
+            case .lookDown:
+                Image(systemName: "arrow.down")
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundColor(.green)
+                    .offset(y: offset)
+            default:
+                EmptyView()
+            }
+        }
+        .opacity(0.9 + (progress * 0.1))
+        .scaleEffect(1.0 + (progress * 0.2))
+    }
+    
+    @ViewBuilder
+    private var smileIndicator: some View {
+        VStack(spacing: 4) {
+            Image(systemName: "face.smiling.fill")
+                .font(.system(size: 28, weight: .bold))
+                .foregroundColor(.green)
+            
+            Text("SMILE")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(.green)
+        }
+        .offset(y: -160) // Position above the face area
+        .opacity(0.9 + (progress * 0.1))
+        .scaleEffect(1.0 + (progress * 0.1))
+    }
+    
+    @ViewBuilder
+    private var blinkIndicator: some View {
+        VStack(spacing: 4) {
+            Image(systemName: "eye")
+                .font(.system(size: 24, weight: .bold))
+                .foregroundColor(.green)
+            
+            Text("BLINK")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(.green)
+        }
+        .offset(y: -160) // Position above the face area
+        .opacity(0.9 + (progress * 0.1))
+        .scaleEffect(1.0 + (progress * 0.1))
+    }
+}
+
+struct FaceGuidanceInstruction: View {
+    let step: FaceRecognitionScanner.FaceGuidanceStep
+    let progress: Double
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            // Large, prominent icon
+            Image(systemName: step.icon)
+                .font(.system(size: 36, weight: .bold))
+                .foregroundColor(.green)
+                .opacity(0.9 + (progress * 0.1))
+                .scaleEffect(1.0 + (progress * 0.15))
+            
+            // Large, clear instruction text
+            Text(step.instruction)
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(.white)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+        }
+        .padding(24)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.black.opacity(0.8))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.green.opacity(0.6), lineWidth: 2)
+                )
+        )
+        .opacity(0.95 + (progress * 0.05))
+        .scaleEffect(1.0 + (progress * 0.05))
+    }
+}
 
 struct FaceRecognitionResults {
     let confidence: Double
