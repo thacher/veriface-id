@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Dark gradient definitions -->
+    <linearGradient id="backgroundGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#16213e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0f3460;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="shieldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.15" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0.05" />
+    </linearGradient>
+    
+    <linearGradient id="faceGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4facfe;stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#00f2fe;stop-opacity:0.8" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background with rounded corners -->
+  <rect width="1024" height="1024" rx="180" ry="180" fill="url(#backgroundGradient)"/>
+  
+  <!-- Shield shape -->
+  <path d="M512 120 L200 280 L200 520 C200 650 300 750 400 800 L512 880 L624 800 C724 750 824 650 824 520 L824 280 L512 120 Z" 
+        fill="url(#shieldGradient)" 
+        stroke="rgba(255,255,255,0.2)" 
+        stroke-width="8"/>
+  
+  <!-- Inner shield for depth -->
+  <path d="M512 160 L240 300 L240 520 C240 620 320 700 400 740 L512 800 L624 740 C704 700 784 620 784 520 L784 300 L512 160 Z" 
+        fill="rgba(255,255,255,0.05)" 
+        stroke="rgba(255,255,255,0.1)" 
+        stroke-width="4"/>
+  
+  <!-- Face silhouette -->
+  <ellipse cx="512" cy="420" rx="120" ry="140" fill="url(#faceGradient)" opacity="0.9"/>
+  
+  <!-- Eyes -->
+  <ellipse cx="480" cy="380" rx="12" ry="16" fill="rgba(255,255,255,0.9)"/>
+  <ellipse cx="544" cy="380" rx="12" ry="16" fill="rgba(255,255,255,0.9)"/>
+  
+  <!-- Eye pupils -->
+  <ellipse cx="480" cy="380" rx="6" ry="8" fill="rgba(255,255,255,0.8)"/>
+  <ellipse cx="544" cy="380" rx="6" ry="8" fill="rgba(255,255,255,0.8)"/>
+  
+  <!-- Nose -->
+  <ellipse cx="512" cy="420" rx="8" ry="12" fill="rgba(255,255,255,0.6)"/>
+  
+  <!-- Mouth -->
+  <path d="M492 460 Q512 480 532 460" 
+        stroke="rgba(255,255,255,0.8)" 
+        stroke-width="4" 
+        fill="none" 
+        stroke-linecap="round"/>
+  
+  <!-- Checkmark verification symbol -->
+  <path d="M450 580 L480 610 L570 520" 
+        stroke="rgba(76, 175, 80, 0.9)" 
+        stroke-width="16" 
+        fill="none" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"/>
+  
+  <!-- Security dots pattern -->
+  <circle cx="300" cy="200" r="8" fill="rgba(255,255,255,0.3)"/>
+  <circle cx="350" cy="180" r="6" fill="rgba(255,255,255,0.2)"/>
+  <circle cx="724" cy="200" r="8" fill="rgba(255,255,255,0.3)"/>
+  <circle cx="674" cy="180" r="6" fill="rgba(255,255,255,0.2)"/>
+  
+  <!-- Subtle scan lines -->
+  <rect x="200" y="320" width="624" height="2" fill="rgba(255,255,255,0.15)" opacity="0.6"/>
+  <rect x="200" y="340" width="624" height="1" fill="rgba(255,255,255,0.08)" opacity="0.4"/>
+  <rect x="200" y="500" width="624" height="2" fill="rgba(255,255,255,0.15)" opacity="0.6"/>
+  <rect x="200" y="480" width="624" height="1" fill="rgba(255,255,255,0.08)" opacity="0.4"/>
+</svg>
