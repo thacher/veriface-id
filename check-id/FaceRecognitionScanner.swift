@@ -731,6 +731,15 @@ extension FaceRecognitionScanner: AVCaptureVideoDataOutputSampleBufferDelegate {
                 return
             }
             
+            // STRICT FACE VALIDATION - Prevent false positives from objects
+            guard self?.isValidFaceDetection(faceObservation: faceObservation) == true else {
+                print("Face detection rejected - likely false positive from object")
+                DispatchQueue.main.async {
+                    self?.faceDetected = false
+                }
+                return
+            }
+            
             let hasFace = !observations.isEmpty
             let confidence = faceObservation.confidence
             let faceRect = faceObservation.boundingBox
@@ -1101,5 +1110,60 @@ extension FaceRecognitionScanner: AVCaptureVideoDataOutputSampleBufferDelegate {
         } else {
             return "Poor"
         }
+    }
+    
+    // MARK: - Strict Face Validation to Prevent False Positives
+    
+    private func isValidFaceDetection(faceObservation: VNFaceObservation) -> Bool {
+        let confidence = Double(faceObservation.confidence)
+        let faceRect = faceObservation.boundingBox
+        
+        // 1. MINIMUM CONFIDENCE THRESHOLD - Reasonable threshold for face detection
+        guard confidence >= 0.3 else {
+            print("Face detection rejected: Low confidence (\(String(format: "%.2f", confidence)))")
+            return false
+        }
+        
+        // 2. FACE SIZE VALIDATION - Must be reasonably sized (not too small, not too large)
+        let faceArea = faceRect.width * faceRect.height
+        guard faceArea >= 0.005 && faceArea <= 0.9 else {
+            print("Face detection rejected: Invalid face size (\(String(format: "%.3f", faceArea)))")
+            return false
+        }
+        
+        // 3. FACE ASPECT RATIO VALIDATION - Must have human-like proportions
+        let aspectRatio = faceRect.width / faceRect.height
+        guard aspectRatio >= 0.5 && aspectRatio <= 1.2 else {
+            print("Face detection rejected: Invalid aspect ratio (\(String(format: "%.2f", aspectRatio)))")
+            return false
+        }
+        
+        // 4. FACE POSITION VALIDATION - Must be reasonably positioned in frame
+        let centerX = faceRect.midX
+        let centerY = faceRect.midY
+        let distanceFromCenter = sqrt(pow(centerX - 0.5, 2) + pow(centerY - 0.5, 2))
+        guard distanceFromCenter <= 0.6 else {
+            print("Face detection rejected: Too far from center (\(String(format: "%.2f", distanceFromCenter)))")
+            return false
+        }
+        
+        // 5. LANDMARK VALIDATION - Must have detectable facial landmarks
+        guard let landmarks = faceObservation.landmarks else {
+            print("Face detection rejected: No facial landmarks detected")
+            return false
+        }
+        
+        // 6. CRITICAL LANDMARK VALIDATION - Must have eyes and mouth (more lenient)
+        let hasEyes = (landmarks.leftEye?.normalizedPoints.count ?? 0) >= 4 && 
+                     (landmarks.rightEye?.normalizedPoints.count ?? 0) >= 4
+        let hasMouth = (landmarks.outerLips?.normalizedPoints.count ?? 0) >= 6
+        
+        guard hasEyes && hasMouth else {
+            print("Face detection rejected: Missing critical landmarks (eyes: \(hasEyes), mouth: \(hasMouth))")
+            return false
+        }
+        
+        print("Face detection validated successfully - confidence: \(String(format: "%.2f", confidence))")
+        return true
     }
 }
