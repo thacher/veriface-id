@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -16,14 +16,14 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		1FEA82522B48FDBCBBC492DA /* ContentView.swift.bak */ = {isa = PBXFileReference; path = ContentView.swift.bak; sourceTree = "<group>"; };
+		1FEA82522B48FDBCBBC492DA /* ContentView.swift.bak */ = {isa = PBXFileReference; lastKnownFileType = text; path = ContentView.swift.bak; sourceTree = "<group>"; };
 		5FD16E9C0E28E23A7E959ED5 /* VerifaceIDApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerifaceIDApp.swift; sourceTree = "<group>"; };
 		75B4F74B16286DA2558F161F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		776A3CA1F601C3C06999C909 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		8E7140AE5EB8E6C0DF82E2E6 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		C46B08152D97C24B8CEC145E /* FaceRecognitionScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceRecognitionScanner.swift; sourceTree = "<group>"; };
 		E0886EAA07C14362151B9285 /* LicenseScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseScanner.swift; sourceTree = "<group>"; };
-		F06719FB301CD19EC5B3F8AE /* veriface-id.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "veriface-id.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		F06719FB301CD19EC5B3F8AE /* veriface-id.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "veriface-id.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -97,7 +97,6 @@
 			);
 			mainGroup = 086A8585799F5ACE434E152F;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -138,6 +137,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = CYC7BDZ448;
 				INFOPLIST_FILE = "veriface-id/Info.plist";
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app needs camera access to capture high-quality photos of driver's license documents for validation.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "This app needs access to your photo library to select existing driver's license images for validation.";
@@ -219,6 +219,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = CYC7BDZ448;
 				INFOPLIST_FILE = "veriface-id/Info.plist";
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app needs camera access to capture high-quality photos of driver's license documents for validation.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "This app needs access to your photo library to select existing driver's license images for validation.";
