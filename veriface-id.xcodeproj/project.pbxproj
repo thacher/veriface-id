@@ -3,66 +3,92 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 63;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		10DFCDA0665C0F24B54BF578 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5581CCEC28FD7781C01D5B23 /* ContentView.swift */; };
-		A1B2C3D4E5F6789012345678 /* FaceRecognitionScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F678901234567890 /* FaceRecognitionScanner.swift */; };
-		C1D2E3F4G5H6I7J8K9L0M1N2O3P4 /* LicenseScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2E3F4G5H6I7J8K9L0M1N2O3P4Q5 /* LicenseScanner.swift */; };
-		C8A45FA6E6BBD79ADD001CE9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 507448E7E43D49F1B74958C9 /* Assets.xcassets */; };
-		E4FD41195F158039AE1896B6 /* VerifaceIDApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 181A5FDFD3D09679AD4905F1 /* VerifaceIDApp.swift */; };
+		0AADFD5AF407C1EF73571F58 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E7140AE5EB8E6C0DF82E2E6 /* ContentView.swift */; };
+		222F12605EC1F65DC4E92DD2 /* FaceRecognitionScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46B08152D97C24B8CEC145E /* FaceRecognitionScanner.swift */; };
+		265630D4531DD9B780440C60 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 75B4F74B16286DA2558F161F /* Assets.xcassets */; };
+		3518B321C575913890BD794A /* CheckIDApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9866F3EF04701FD974AB60F9 /* CheckIDApp.swift */; };
+		75A19030A0BE1165CA76A875 /* ContentView.swift.bak in Resources */ = {isa = PBXBuildFile; fileRef = 1FEA82522B48FDBCBBC492DA /* ContentView.swift.bak */; };
+		7D6E2DF2CE56147FC8D0EF1E /* LicenseScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0886EAA07C14362151B9285 /* LicenseScanner.swift */; };
+		A501C9B927636E42DD7F6E5C /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 313A8A90B99F980873D2BEA3 /* Info.plist */; };
+		AD62E3698AA38388B8FDD63E /* FaceRecognitionScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DC80EE3DF8F4629D35CA2A0 /* FaceRecognitionScanner.swift */; };
+		CDF2D4D055EB09ABCDB5D1DA /* VerifaceIDApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FD16E9C0E28E23A7E959ED5 /* VerifaceIDApp.swift */; };
+		D30B0FDCE13794FF2B3022F9 /* LicenseScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = F17DBE2D043A0D9FE296E5D5 /* LicenseScanner.swift */; };
+		DE284BE8AC8364B6F940D640 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7F1AAE1AFA495B9C0DF2BD8 /* ContentView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		181A5FDFD3D09679AD4905F1 /* VerifaceIDApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerifaceIDApp.swift; sourceTree = "<group>"; };
-		507448E7E43D49F1B74958C9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		5581CCEC28FD7781C01D5B23 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		B2C3D4E5F678901234567890 /* FaceRecognitionScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceRecognitionScanner.swift; sourceTree = "<group>"; };
-		D0B0005DA90BD2F6F88E78F3 /* veriface-id.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "veriface-id.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		D2E3F4G5H6I7J8K9L0M1N2O3P4Q5 /* LicenseScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseScanner.swift; sourceTree = "<group>"; };
-		DED0D4E02D66C0A884C8E1AD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		1FEA82522B48FDBCBBC492DA /* ContentView.swift.bak */ = {isa = PBXFileReference; path = ContentView.swift.bak; sourceTree = "<group>"; };
+		313A8A90B99F980873D2BEA3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		5FD16E9C0E28E23A7E959ED5 /* VerifaceIDApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerifaceIDApp.swift; sourceTree = "<group>"; };
+		75B4F74B16286DA2558F161F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		776A3CA1F601C3C06999C909 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		7DC80EE3DF8F4629D35CA2A0 /* FaceRecognitionScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceRecognitionScanner.swift; sourceTree = "<group>"; };
+		8E7140AE5EB8E6C0DF82E2E6 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		9866F3EF04701FD974AB60F9 /* CheckIDApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckIDApp.swift; sourceTree = "<group>"; };
+		B7F1AAE1AFA495B9C0DF2BD8 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		C46B08152D97C24B8CEC145E /* FaceRecognitionScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceRecognitionScanner.swift; sourceTree = "<group>"; };
+		E0886EAA07C14362151B9285 /* LicenseScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseScanner.swift; sourceTree = "<group>"; };
+		F06719FB301CD19EC5B3F8AE /* veriface-id.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "veriface-id.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		F17DBE2D043A0D9FE296E5D5 /* LicenseScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseScanner.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
-		9750CA43A324651EA8993D68 /* veriface-id */ = {
+		086A8585799F5ACE434E152F = {
 			isa = PBXGroup;
 			children = (
-				507448E7E43D49F1B74958C9 /* Assets.xcassets */,
-				181A5FDFD3D09679AD4905F1 /* VerifaceIDApp.swift */,
-				5581CCEC28FD7781C01D5B23 /* ContentView.swift */,
-				B2C3D4E5F678901234567890 /* FaceRecognitionScanner.swift */,
-				D2E3F4G5H6I7J8K9L0M1N2O3P4Q5 /* LicenseScanner.swift */,
-				DED0D4E02D66C0A884C8E1AD /* Info.plist */,
-			);
-			path = "veriface-id";
-			sourceTree = "<group>";
-		};
-		D0FEC64B493BEF1920A2CB7E = {
-			isa = PBXGroup;
-			children = (
-				9750CA43A324651EA8993D68 /* veriface-id */,
-				DCC707CDDA10AB9BFCF5BEBB /* Products */,
+				9C83F0D7A3C496494BD60B03 /* veriface-id */,
+				6A8F0594C3D09E3FB8E221B7 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		DCC707CDDA10AB9BFCF5BEBB /* Products */ = {
+		6A8F0594C3D09E3FB8E221B7 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				D0B0005DA90BD2F6F88E78F3 /* veriface-id.app */,
+				F06719FB301CD19EC5B3F8AE /* veriface-id.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		759DB742214699EB91310498 /* check-id */ = {
+			isa = PBXGroup;
+			children = (
+				9866F3EF04701FD974AB60F9 /* CheckIDApp.swift */,
+				B7F1AAE1AFA495B9C0DF2BD8 /* ContentView.swift */,
+				7DC80EE3DF8F4629D35CA2A0 /* FaceRecognitionScanner.swift */,
+				313A8A90B99F980873D2BEA3 /* Info.plist */,
+				F17DBE2D043A0D9FE296E5D5 /* LicenseScanner.swift */,
+			);
+			path = "check-id";
+			sourceTree = "<group>";
+		};
+		9C83F0D7A3C496494BD60B03 /* veriface-id */ = {
+			isa = PBXGroup;
+			children = (
+				759DB742214699EB91310498 /* check-id */,
+				75B4F74B16286DA2558F161F /* Assets.xcassets */,
+				8E7140AE5EB8E6C0DF82E2E6 /* ContentView.swift */,
+				1FEA82522B48FDBCBBC492DA /* ContentView.swift.bak */,
+				C46B08152D97C24B8CEC145E /* FaceRecognitionScanner.swift */,
+				776A3CA1F601C3C06999C909 /* Info.plist */,
+				E0886EAA07C14362151B9285 /* LicenseScanner.swift */,
+				5FD16E9C0E28E23A7E959ED5 /* VerifaceIDApp.swift */,
+			);
+			path = "veriface-id";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		6827FCE9DE470F331EC85D4A /* veriface-id */ = {
+		3D84430B0A02E9F0109316B0 /* veriface-id */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 48853026EE4B4DED04939A96 /* Build configuration list for PBXNativeTarget "veriface-id" */;
+			buildConfigurationList = 410E0B8E4A23B194E2242F0E /* Build configuration list for PBXNativeTarget "veriface-id" */;
 			buildPhases = (
-				0950659301BE4630E04F04B5 /* Sources */,
-				4350EF2529ECD71B842FA0AD /* Resources */,
+				B7E84FF0C92301DAB141ACD8 /* Sources */,
+				7EEE199DED3E61DFA22EDDE8 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -72,19 +98,19 @@
 			packageProductDependencies = (
 			);
 			productName = "veriface-id";
-			productReference = D0B0005DA90BD2F6F88E78F3 /* veriface-id.app */;
+			productReference = F06719FB301CD19EC5B3F8AE /* veriface-id.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		DEBB7564C46127B864AB43A4 /* Project object */ = {
+		C02E31117E9A5812FC06F771 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1500;
 			};
-			buildConfigurationList = 5CA9900358407D33B8DB2EBC /* Build configuration list for PBXProject "veriface-id" */;
+			buildConfigurationList = 22D2D0306AC0B2FC9B4F1E28 /* Build configuration list for PBXProject "veriface-id" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -92,43 +118,75 @@
 				Base,
 				en,
 			);
-			mainGroup = D0FEC64B493BEF1920A2CB7E;
+			mainGroup = 086A8585799F5ACE434E152F;
 			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				6827FCE9DE470F331EC85D4A /* veriface-id */,
+				3D84430B0A02E9F0109316B0 /* veriface-id */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		4350EF2529ECD71B842FA0AD /* Resources */ = {
+		7EEE199DED3E61DFA22EDDE8 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C8A45FA6E6BBD79ADD001CE9 /* Assets.xcassets in Resources */,
+				265630D4531DD9B780440C60 /* Assets.xcassets in Resources */,
+				75A19030A0BE1165CA76A875 /* ContentView.swift.bak in Resources */,
+				A501C9B927636E42DD7F6E5C /* Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		0950659301BE4630E04F04B5 /* Sources */ = {
+		B7E84FF0C92301DAB141ACD8 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A1B2C3D4E5F6789012345678 /* FaceRecognitionScanner.swift in Sources */,
-				C1D2E3F4G5H6I7J8K9L0M1N2O3P4 /* LicenseScanner.swift in Sources */,
-				E4FD41195F158039AE1896B6 /* VerifaceIDApp.swift in Sources */,
-				10DFCDA0665C0F24B54BF578 /* ContentView.swift in Sources */,
+				3518B321C575913890BD794A /* CheckIDApp.swift in Sources */,
+				0AADFD5AF407C1EF73571F58 /* ContentView.swift in Sources */,
+				DE284BE8AC8364B6F940D640 /* ContentView.swift in Sources */,
+				222F12605EC1F65DC4E92DD2 /* FaceRecognitionScanner.swift in Sources */,
+				AD62E3698AA38388B8FDD63E /* FaceRecognitionScanner.swift in Sources */,
+				7D6E2DF2CE56147FC8D0EF1E /* LicenseScanner.swift in Sources */,
+				D30B0FDCE13794FF2B3022F9 /* LicenseScanner.swift in Sources */,
+				CDF2D4D055EB09ABCDB5D1DA /* VerifaceIDApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		08513644A7842B83CA532ECF /* Release */ = {
+		12DF53B7562B86057D145724 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = "veriface-id/Info.plist";
+				INFOPLIST_KEY_NSCameraUsageDescription = "This app needs camera access to capture high-quality photos of driver's license documents for validation.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "This app needs access to your photo library to select existing driver's license images for validation.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.verifaceid.app;
+				PRODUCT_NAME = "veriface-id";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		405CE199DB8B60C19A4454B0 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -184,12 +242,11 @@
 			};
 			name = Release;
 		};
-		4E7122600E8AB37264ABCE82 /* Release */ = {
+		4A6DE047F47B0FE30EE4D498 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = MHY4V9B2DU;
 				INFOPLIST_FILE = "veriface-id/Info.plist";
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app needs camera access to capture high-quality photos of driver's license documents for validation.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "This app needs access to your photo library to select existing driver's license images for validation.";
@@ -208,9 +265,9 @@
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
-			name = Release;
+			name = Debug;
 		};
-		81F4E451CFE05DC52502F395 /* Debug */ = {
+		F21614F4A50AA5ACB35F5E53 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -273,54 +330,28 @@
 			};
 			name = Debug;
 		};
-		D723BC9761DBC2C1AFFEDF74 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = MHY4V9B2DU;
-				INFOPLIST_FILE = "veriface-id/Info.plist";
-				INFOPLIST_KEY_NSCameraUsageDescription = "This app needs camera access to capture high-quality photos of driver's license documents for validation.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "This app needs access to your photo library to select existing driver's license images for validation.";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.verifaceid.app;
-				PRODUCT_NAME = "veriface-id";
-				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		48853026EE4B4DED04939A96 /* Build configuration list for PBXNativeTarget "veriface-id" */ = {
+		22D2D0306AC0B2FC9B4F1E28 /* Build configuration list for PBXProject "veriface-id" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				D723BC9761DBC2C1AFFEDF74 /* Debug */,
-				4E7122600E8AB37264ABCE82 /* Release */,
+				F21614F4A50AA5ACB35F5E53 /* Debug */,
+				405CE199DB8B60C19A4454B0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
-		5CA9900358407D33B8DB2EBC /* Build configuration list for PBXProject "veriface-id" */ = {
+		410E0B8E4A23B194E2242F0E /* Build configuration list for PBXNativeTarget "veriface-id" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				81F4E451CFE05DC52502F395 /* Debug */,
-				08513644A7842B83CA532ECF /* Release */,
+				4A6DE047F47B0FE30EE4D498 /* Debug */,
+				12DF53B7562B86057D145724 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
 	};
-	rootObject = DEBB7564C46127B864AB43A4 /* Project object */;
+	rootObject = C02E31117E9A5812FC06F771 /* Project object */;
 }
