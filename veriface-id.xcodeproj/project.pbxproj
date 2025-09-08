@@ -10,30 +10,20 @@
 		0AADFD5AF407C1EF73571F58 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E7140AE5EB8E6C0DF82E2E6 /* ContentView.swift */; };
 		222F12605EC1F65DC4E92DD2 /* FaceRecognitionScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46B08152D97C24B8CEC145E /* FaceRecognitionScanner.swift */; };
 		265630D4531DD9B780440C60 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 75B4F74B16286DA2558F161F /* Assets.xcassets */; };
-		3518B321C575913890BD794A /* CheckIDApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9866F3EF04701FD974AB60F9 /* CheckIDApp.swift */; };
 		75A19030A0BE1165CA76A875 /* ContentView.swift.bak in Resources */ = {isa = PBXBuildFile; fileRef = 1FEA82522B48FDBCBBC492DA /* ContentView.swift.bak */; };
 		7D6E2DF2CE56147FC8D0EF1E /* LicenseScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0886EAA07C14362151B9285 /* LicenseScanner.swift */; };
-		A501C9B927636E42DD7F6E5C /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 313A8A90B99F980873D2BEA3 /* Info.plist */; };
-		AD62E3698AA38388B8FDD63E /* FaceRecognitionScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DC80EE3DF8F4629D35CA2A0 /* FaceRecognitionScanner.swift */; };
 		CDF2D4D055EB09ABCDB5D1DA /* VerifaceIDApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FD16E9C0E28E23A7E959ED5 /* VerifaceIDApp.swift */; };
-		D30B0FDCE13794FF2B3022F9 /* LicenseScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = F17DBE2D043A0D9FE296E5D5 /* LicenseScanner.swift */; };
-		DE284BE8AC8364B6F940D640 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7F1AAE1AFA495B9C0DF2BD8 /* ContentView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		1FEA82522B48FDBCBBC492DA /* ContentView.swift.bak */ = {isa = PBXFileReference; path = ContentView.swift.bak; sourceTree = "<group>"; };
-		313A8A90B99F980873D2BEA3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		5FD16E9C0E28E23A7E959ED5 /* VerifaceIDApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerifaceIDApp.swift; sourceTree = "<group>"; };
 		75B4F74B16286DA2558F161F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		776A3CA1F601C3C06999C909 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		7DC80EE3DF8F4629D35CA2A0 /* FaceRecognitionScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceRecognitionScanner.swift; sourceTree = "<group>"; };
 		8E7140AE5EB8E6C0DF82E2E6 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		9866F3EF04701FD974AB60F9 /* CheckIDApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckIDApp.swift; sourceTree = "<group>"; };
-		B7F1AAE1AFA495B9C0DF2BD8 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		C46B08152D97C24B8CEC145E /* FaceRecognitionScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceRecognitionScanner.swift; sourceTree = "<group>"; };
 		E0886EAA07C14362151B9285 /* LicenseScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseScanner.swift; sourceTree = "<group>"; };
 		F06719FB301CD19EC5B3F8AE /* veriface-id.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "veriface-id.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		F17DBE2D043A0D9FE296E5D5 /* LicenseScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseScanner.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -53,22 +43,9 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		759DB742214699EB91310498 /* check-id */ = {
-			isa = PBXGroup;
-			children = (
-				9866F3EF04701FD974AB60F9 /* CheckIDApp.swift */,
-				B7F1AAE1AFA495B9C0DF2BD8 /* ContentView.swift */,
-				7DC80EE3DF8F4629D35CA2A0 /* FaceRecognitionScanner.swift */,
-				313A8A90B99F980873D2BEA3 /* Info.plist */,
-				F17DBE2D043A0D9FE296E5D5 /* LicenseScanner.swift */,
-			);
-			path = "check-id";
-			sourceTree = "<group>";
-		};
 		9C83F0D7A3C496494BD60B03 /* veriface-id */ = {
 			isa = PBXGroup;
 			children = (
-				759DB742214699EB91310498 /* check-id */,
 				75B4F74B16286DA2558F161F /* Assets.xcassets */,
 				8E7140AE5EB8E6C0DF82E2E6 /* ContentView.swift */,
 				1FEA82522B48FDBCBBC492DA /* ContentView.swift.bak */,
@@ -136,7 +113,6 @@
 			files = (
 				265630D4531DD9B780440C60 /* Assets.xcassets in Resources */,
 				75A19030A0BE1165CA76A875 /* ContentView.swift.bak in Resources */,
-				A501C9B927636E42DD7F6E5C /* Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -147,13 +123,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3518B321C575913890BD794A /* CheckIDApp.swift in Sources */,
 				0AADFD5AF407C1EF73571F58 /* ContentView.swift in Sources */,
-				DE284BE8AC8364B6F940D640 /* ContentView.swift in Sources */,
 				222F12605EC1F65DC4E92DD2 /* FaceRecognitionScanner.swift in Sources */,
-				AD62E3698AA38388B8FDD63E /* FaceRecognitionScanner.swift in Sources */,
 				7D6E2DF2CE56147FC8D0EF1E /* LicenseScanner.swift in Sources */,
-				D30B0FDCE13794FF2B3022F9 /* LicenseScanner.swift in Sources */,
 				CDF2D4D055EB09ABCDB5D1DA /* VerifaceIDApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
